@@ -9,6 +9,7 @@ function buildServiceTemplate(name: string, className: string, serviceName: stri
 
   return `
 import { Effect, Option } from "effect";
+import { type DbError, UnknownDbError } from "@libs/dbHandler";
 
 import { ${storageName} } from "./${name}.storage";
 import { type ${className}, type Creatable${className}, type Updatable${className} } from "./${name}.entity";
@@ -21,19 +22,14 @@ export class ${className}AlreadyExists {
   readonly _tag = "${className}AlreadyExists";
 }
 
-export class ${className}PersistenceError {
-  readonly _tag = "${className}PersistenceError";
-}
-
-export type ${className}ServiceError = ${className}NotFound | ${className}AlreadyExists | ${className}PersistenceError;
+export type ${className}ServiceError = ${className}NotFound | ${className}AlreadyExists | DbError;
 
 export class ${serviceName} {
   static create(payload: Creatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.insert(payload).pipe(
-      Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
         Option.match({
-          onNone: () => Effect.fail(new ${className}PersistenceError()),
+          onNone: () => Effect.fail(new UnknownDbError("${className} not found")),
           onSome: (${entityVarName}) => Effect.succeed(${entityVarName}),
         }),
       ),
@@ -42,7 +38,6 @@ export class ${serviceName} {
 
   static findOne(id: string): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.findOne(id).pipe(
-      Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new ${className}NotFound()),
@@ -58,7 +53,6 @@ export class ${serviceName} {
 
   static update(id: string, payload: Updatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.update(id, payload).pipe(
-      Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new ${className}NotFound()),
@@ -70,7 +64,6 @@ export class ${serviceName} {
 
   static remove(id: string): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.del(id).pipe(
-      Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new ${className}NotFound()),
@@ -134,5 +127,7 @@ export async function generateCrud(name: string) {
   await fs.writeFile(entityFilePath, entityTemplate);
 
   console.log(`✅ Created CRUD module: ${name}`);
-  console.log(`✅ Generated ${name}.routes.ts, ${name}.service.ts, ${name}.dto.ts, ${name}.entity.ts, and ${name}.storage.ts`);
+  console.log(
+    `✅ Generated ${name}.routes.ts, ${name}.service.ts, ${name}.dto.ts, ${name}.entity.ts, and ${name}.storage.ts`,
+  );
 }

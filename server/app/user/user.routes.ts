@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
+import { UnknownDbError } from "@libs/dbHandler";
 
-import { UserService, UserNotFound, UserPersistenceError, UserServiceError } from "./user.service";
+import { UserService, UserNotFound, UserAlreadyExists, UserServiceError } from "./user.service";
 import { CreateUserDtoSchema, UpdateUserDtoSchema, UserDtoSchema } from "./user.dto";
 import { defineRoute } from "@libs/defineRoute";
 
@@ -9,13 +10,17 @@ const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
 });
 
-function mapUserServiceError(error: UserServiceError): { statusCode: 404 | 500; message: string } {
+function mapUserServiceError(error: UserServiceError): { statusCode: 404 | 409 | 500; message: string } {
   if (error instanceof UserNotFound) {
     return { statusCode: 404, message: "User not found" };
   }
 
-  if (error instanceof UserPersistenceError) {
-    return { statusCode: 500, message: "Database error" };
+  if (error instanceof UserAlreadyExists) {
+    return { statusCode: 409, message: "User with this email already exists" };
+  }
+
+  if (error instanceof UnknownDbError) {
+    return { statusCode: 500, message: String(error.cause) };
   }
 
   return { statusCode: 500, message: "Internal server error" };

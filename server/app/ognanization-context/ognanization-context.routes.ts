@@ -1,10 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
+import { UnknownDbError } from "@libs/dbHandler";
 
 import {
   OgnanizationContextService,
   OgnanizationContextNotFound,
-  OgnanizationContextPersistenceError,
   OgnanizationContextServiceError,
 } from "./ognanization-context.service";
 import {
@@ -18,12 +18,15 @@ const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
 });
 
-function mapOgnanizationContextServiceError(error: OgnanizationContextServiceError): { statusCode: 404 | 500; message: string } {
+function mapOgnanizationContextServiceError(error: OgnanizationContextServiceError): {
+  statusCode: 404 | 500;
+  message: string;
+} {
   if (error instanceof OgnanizationContextNotFound) {
     return { statusCode: 404, message: "OgnanizationContext not found" };
   }
 
-  if (error instanceof OgnanizationContextPersistenceError) {
+  if (error instanceof UnknownDbError) {
     return { statusCode: 500, message: "Database error" };
   }
 
@@ -36,7 +39,8 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     url: "/",
     input: CreateOgnanizationContextDtoSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (input) => OgnanizationContextService.create(input).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (input) =>
+      OgnanizationContextService.create(input).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
   });
 
   defineRoute(app, {
@@ -44,7 +48,8 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (_, params) => OgnanizationContextService.findOne(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (_, params) =>
+      OgnanizationContextService.findOne(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
   });
 
   defineRoute(app, {
@@ -72,6 +77,7 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (_, params) => OgnanizationContextService.remove(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (_, params) =>
+      OgnanizationContextService.remove(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
   });
 }

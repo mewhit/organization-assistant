@@ -1,4 +1,5 @@
 import { Effect, Option } from "effect";
+import { type DbError, UnknownDbError } from "@libs/dbHandler";
 
 import { OgnanizationContextStorage } from "./ognanization-context.storage";
 import {
@@ -15,22 +16,16 @@ export class OgnanizationContextAlreadyExists {
   readonly _tag = "OgnanizationContextAlreadyExists";
 }
 
-export class OgnanizationContextPersistenceError {
-  readonly _tag = "OgnanizationContextPersistenceError";
-}
-
-export type OgnanizationContextServiceError =
-  | OgnanizationContextNotFound
-  | OgnanizationContextAlreadyExists
-  | OgnanizationContextPersistenceError;
+export type OgnanizationContextServiceError = OgnanizationContextNotFound | OgnanizationContextAlreadyExists | DbError;
 
 export class OgnanizationContextService {
-  static create(payload: CreatableOgnanizationContext): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
+  static create(
+    payload: CreatableOgnanizationContext,
+  ): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
     return OgnanizationContextStorage.insert(payload).pipe(
-      Effect.mapError(() => new OgnanizationContextPersistenceError()),
       Effect.flatMap(
         Option.match({
-          onNone: () => Effect.fail(new OgnanizationContextPersistenceError()),
+          onNone: () => Effect.fail(new UnknownDbError("OgnanizationContext not found")),
           onSome: (ognanizationContext) => Effect.succeed(ognanizationContext),
         }),
       ),
@@ -39,7 +34,6 @@ export class OgnanizationContextService {
 
   static findOne(id: string): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
     return OgnanizationContextStorage.findOne(id).pipe(
-      Effect.mapError(() => new OgnanizationContextPersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new OgnanizationContextNotFound()),
@@ -53,9 +47,11 @@ export class OgnanizationContextService {
     return this.findOne(id);
   }
 
-  static update(id: string, payload: UpdatableOgnanizationContext): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
+  static update(
+    id: string,
+    payload: UpdatableOgnanizationContext,
+  ): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
     return OgnanizationContextStorage.update(id, payload).pipe(
-      Effect.mapError(() => new OgnanizationContextPersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new OgnanizationContextNotFound()),
@@ -67,7 +63,6 @@ export class OgnanizationContextService {
 
   static remove(id: string): Effect.Effect<OgnanizationContext, OgnanizationContextServiceError> {
     return OgnanizationContextStorage.del(id).pipe(
-      Effect.mapError(() => new OgnanizationContextPersistenceError()),
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.fail(new OgnanizationContextNotFound()),

@@ -1,7 +1,10 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import { config } from "dotenv";
 
 import { schema } from "./schema.js";
+
+config({ path: ".env" });
 
 const databaseUrl =
   process.env.DATABASE_URL ??

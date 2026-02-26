@@ -37,63 +37,62 @@ function buildStorageTemplate(
   tableName: string,
   actions: Exclude<StorageAction, "all">[],
 ) {
-  const needsEq = actions.includes("del") || actions.includes("update") || actions.includes("findOne");
+  const needsRandomUUID = actions.includes("insert");
+  const needsEq =
+    actions.includes("insert") || actions.includes("del") || actions.includes("update") || actions.includes("findOne");
   const methodBlocks: string[] = [];
   const selectTypeName = `${pascalCaseName}Record`;
   const insertTypeName = `New${pascalCaseName}Record`;
 
   if (actions.includes("insert")) {
     methodBlocks.push(`  static insert(payload: ${insertTypeName}): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const rows = await db.insert(${tableVariableName}).values(payload).returning();
-        return Option.fromNullable(rows.at(0));
-      },
-      catch: (error) => new DbError(error),
+    return dbHandler(async () => {
+      const id = payload.id ?? randomUUID();
+      await db.insert(${tableVariableName}).values({ ...payload, id });
+      const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
+
+      return Option.fromNullable(rows.at(0));
     });
   }`);
   }
 
   if (actions.includes("del")) {
     methodBlocks.push(`  static del(id: string): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const rows = await db.delete(${tableVariableName}).where(eq(${tableVariableName}.id, id)).returning();
+    return dbHandler(async () => {
+      const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
+      await db.delete(${tableVariableName}).where(eq(${tableVariableName}.id, id));
 
-        return Option.fromNullable(rows.at(0));
-      },
-      catch: (error) => new DbError(error),
+      return Option.fromNullable(rows.at(0));
     });
   }`);
   }
 
   if (actions.includes("update")) {
     methodBlocks.push(`  static update(id: string, payload: Partial<${insertTypeName}>): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const rows = await db.update(${tableVariableName}).set(payload).where(eq(${tableVariableName}.id, id)).returning();
+    return dbHandler(async () => {
+      await db.update(${tableVariableName}).set(payload).where(eq(${tableVariableName}.id, id));
+      const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
 
-        return Option.fromNullable(rows.at(0));
-      },
-      catch: (error) => new DbError(error),
+      return Option.fromNullable(rows.at(0));
     });
   }`);
   }
 
   if (actions.includes("findOne")) {
     methodBlocks.push(`  static findOne(id: string): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
+    return dbHandler(async () => {
+      const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
 
-        return Option.fromNullable(rows.at(0));
-      },
-      catch: (error) => new DbError(error),
+      return Option.fromNullable(rows.at(0));
     });
   }`);
   }
 
   const lines: string[] = [];
+
+  if (needsRandomUUID) {
+    lines.push('import { randomUUID } from "node:crypto";', "");
+  }
 
   if (needsEq) {
     lines.push('import { eq } from "drizzle-orm";', "");
@@ -101,15 +100,11 @@ function buildStorageTemplate(
 
   if (actions.length > 0) {
     lines.push(
-      'import { Effect, Option } from "effect";',
+      'import { Option, type Effect } from "effect";',
       "",
       'import { db } from "db/client";',
-      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "../../db/schemas/${tableName}.schema";`,
-      "",
-      "export class DbError {",
-      '  readonly _tag = "DbError";',
-      "  constructor(readonly cause: unknown) {}",
-      "}",
+      'import { dbHandler, type DbError } from "@libs/dbHandler";',
+      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "@db/schemas/${tableName}.schema";`,
       "",
     );
   }
@@ -158,14 +153,17 @@ async function registerSchemaTable(tableName: string, tableVariableName: string)
   const escapedVariableName = tableVariableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tablePropertyMatcher = new RegExp(`(^|\\n)\\s*${escapedVariableName}\\s*,?\\s*(?=\\n|$)`);
 
-  updatedSchemaContent = updatedSchemaContent.replace(schemaObjectMatcher, (fullMatch, prefix: string, body: string, suffix: string) => {
-    if (tablePropertyMatcher.test(body)) {
-      return fullMatch;
-    }
+  updatedSchemaContent = updatedSchemaContent.replace(
+    schemaObjectMatcher,
+    (fullMatch, prefix: string, body: string, suffix: string) => {
+      if (tablePropertyMatcher.test(body)) {
+        return fullMatch;
+      }
 
-    const normalizedBody = body.trim().length === 0 ? "\n" : `${body.trimEnd()}\n`;
-    return `${prefix}${normalizedBody}${tablePropertyLine}\n${suffix}`;
-  });
+      const normalizedBody = body.trim().length === 0 ? "\n" : `${body.trimEnd()}\n`;
+      return `${prefix}${normalizedBody}${tablePropertyLine}\n${suffix}`;
+    },
+  );
 
   await fs.writeFile(schemaRegistryPath, updatedSchemaContent);
 }

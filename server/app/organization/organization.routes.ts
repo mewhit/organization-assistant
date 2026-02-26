@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
+import { UnknownDbError } from "@libs/dbHandler";
 
-import { OrganizationService, OrganizationNotFound, OrganizationPersistenceError, OrganizationServiceError } from "./organization.service";
+import { OrganizationService, OrganizationNotFound, OrganizationServiceError } from "./organization.service";
 import { CreateOrganizationDtoSchema, UpdateOrganizationDtoSchema, OrganizationDtoSchema } from "./organization.dto";
 import { defineRoute } from "@libs/defineRoute";
 
@@ -14,7 +15,7 @@ function mapOrganizationServiceError(error: OrganizationServiceError): { statusC
     return { statusCode: 404, message: "Organization not found" };
   }
 
-  if (error instanceof OrganizationPersistenceError) {
+  if (error instanceof UnknownDbError) {
     return { statusCode: 500, message: "Database error" };
   }
 
@@ -44,7 +45,8 @@ export default async function organizationRoutes(app: FastifyInstance) {
     input: UpdateOrganizationDtoSchema,
     params: IdParamsSchema,
     output: OrganizationDtoSchema,
-    handler: (input, params) => OrganizationService.update(params.id, input).pipe(Effect.mapError(mapOrganizationServiceError)),
+    handler: (input, params) =>
+      OrganizationService.update(params.id, input).pipe(Effect.mapError(mapOrganizationServiceError)),
   });
 
   defineRoute(app, {
@@ -53,7 +55,8 @@ export default async function organizationRoutes(app: FastifyInstance) {
     input: UpdateOrganizationDtoSchema,
     params: IdParamsSchema,
     output: OrganizationDtoSchema,
-    handler: (input, params) => OrganizationService.update(params.id, input).pipe(Effect.mapError(mapOrganizationServiceError)),
+    handler: (input, params) =>
+      OrganizationService.update(params.id, input).pipe(Effect.mapError(mapOrganizationServiceError)),
   });
 
   defineRoute(app, {

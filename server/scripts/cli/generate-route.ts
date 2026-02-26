@@ -40,7 +40,9 @@ function parseRouteDefinitions(routeOptions: string[]) {
       .filter(Boolean);
 
     if (tokens.length < 2) {
-      throw new Error(`Invalid route definition: \"${rawDefinition}\". Expected format: method|path or method|method|path.`);
+      throw new Error(
+        `Invalid route definition: \"${rawDefinition}\". Expected format: method|path or method|method|path.`,
+      );
     }
 
     const rawPath = tokens.at(-1)!;
@@ -48,7 +50,9 @@ function parseRouteDefinitions(routeOptions: string[]) {
 
     for (const method of methods) {
       if (!isHttpMethod(method)) {
-        throw new Error(`Invalid HTTP method: \"${method}\" in \"${rawDefinition}\". Supported methods: ${HTTP_METHODS.join(", ")}.`);
+        throw new Error(
+          `Invalid HTTP method: \"${method}\" in \"${rawDefinition}\". Supported methods: ${HTTP_METHODS.join(", ")}.`,
+        );
       }
 
       definitions.push({ method, path: normalizeRoutePath(rawPath) });
@@ -76,8 +80,9 @@ function buildCrudServiceRouteTemplate(name: string) {
   return `
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
+import { UnknownDbError } from "@libs/dbHandler";
 
-import { ${className}Service, ${className}NotFound, ${className}PersistenceError, ${className}ServiceError } from "./${name}.service";
+import { ${className}Service, ${className}NotFound, ${className}ServiceError } from "./${name}.service";
 import { Create${className}DtoSchema, Update${className}DtoSchema, ${className}DtoSchema } from "./${name}.dto";
 import { defineRoute } from "@libs/defineRoute";
 
@@ -90,7 +95,7 @@ function map${className}ServiceError(error: ${className}ServiceError): { statusC
     return { statusCode: 404, message: "${className} not found" };
   }
 
-  if (error instanceof ${className}PersistenceError) {
+  if (error instanceof UnknownDbError) {
     return { statusCode: 500, message: "Database error" };
   }
 

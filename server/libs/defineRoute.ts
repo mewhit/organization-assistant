@@ -52,6 +52,7 @@ export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P
               reply.status(400).send({ message: error.message });
               return;
             }
+            console.log("Unexpected error in route handler:", error);
             reply.status(error.statusCode).send({ message: error.message });
           },
           onSuccess: (result) => {
