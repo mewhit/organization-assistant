@@ -9,6 +9,11 @@ type RouteDefinition = {
   path: string;
 };
 
+type GenerateRouteFlags = {
+  autoCrud?: boolean;
+  useService?: boolean;
+};
+
 function normalizeRoutePath(routePath: string) {
   const trimmedPath = routePath.trim();
 
@@ -51,7 +56,39 @@ function parseRouteDefinitions(routeOptions: string[]) {
   return definitions;
 }
 
-function appendRouteHandlers(routeFileContent: string, definitions: RouteDefinition[]) {
+function getRouteParam(routePath: string) {
+  const match = routePath.match(/:([a-zA-Z0-9_]+)/);
+  return match?.[1] ?? null;
+}
+
+function buildServiceBackedHandler(definition: RouteDefinition, serviceName: string) {
+  const { method, path } = definition;
+  const paramName = getRouteParam(path);
+
+  if (method === "get" && paramName) {
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.findOne(Number(request.params?.${paramName}));\n  });`;
+  }
+
+  if (method === "post") {
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.create(request.body ?? {});\n  });`;
+  }
+
+  if ((method === "put" || method === "patch") && paramName) {
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.update(Number(request.params?.${paramName}), request.body ?? {});\n  });`;
+  }
+
+  if (method === "delete" && paramName) {
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.remove(Number(request.params?.${paramName}));\n  });`;
+  }
+
+  return `  app.${method}("${path}", async () => {\n    return {};\n  });`;
+}
+
+function appendRouteHandlers(
+  routeFileContent: string,
+  definitions: RouteDefinition[],
+  options?: { useService?: boolean; serviceName?: string },
+) {
   if (definitions.length === 0) {
     return routeFileContent;
   }
@@ -63,7 +100,14 @@ function appendRouteHandlers(routeFileContent: string, definitions: RouteDefinit
 
       return !methodMatcher.test(routeFileContent);
     })
-    .map(({ method, path }) => `  app.${method}(\"${path}\", async () => {\n    return {};\n  });`)
+    .map((definition) => {
+      if (options?.useService && options.serviceName) {
+        return buildServiceBackedHandler(definition, options.serviceName);
+      }
+
+      const { method, path } = definition;
+      return `  app.${method}(\"${path}\", async () => {\n    return {};\n  });`;
+    })
     .join("\n\n");
 
   if (!handlers) {
@@ -82,10 +126,15 @@ function appendRouteHandlers(routeFileContent: string, definitions: RouteDefinit
   return `${beforeClose}\n\n${handlers}\n${afterClose}`;
 }
 
-export async function generateRoute(name: string, routeOptions: string[] = []) {
+export async function generateRoute(name: string, routeOptions: string[] = [], flags: GenerateRouteFlags = {}) {
+  if (flags.useService && !flags.autoCrud) {
+    throw new Error("Invalid flags: -s can only be used when -a is provided.");
+  }
+
   const modulePath = path.join("src", name);
   const routeFilePath = path.join(modulePath, `${name}.routes.ts`);
   const routeHandlerName = `${toCamelCase(name)}Routes`;
+  const serviceName = `${toCamelCase(name)}Service`;
 
   await fs.mkdir(modulePath, { recursive: true });
 
@@ -105,8 +154,28 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     routeFileContent = template;
   }
 
+  if (flags.useService && !routeFileContent.includes(`"./${name}.service"`)) {
+    const serviceImportLine = `import { ${serviceName} } from "./${name}.service"`;
+    const routeLines = routeFileContent.split("\n");
+    const lastImportIndex = [...routeLines]
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.trim().startsWith("import "))
+      .at(-1)?.index;
+
+    if (lastImportIndex === undefined) {
+      routeLines.unshift(serviceImportLine);
+    } else {
+      routeLines.splice(lastImportIndex + 1, 0, serviceImportLine);
+    }
+
+    routeFileContent = routeLines.join("\n");
+  }
+
   const routeDefinitions = parseRouteDefinitions(routeOptions);
-  routeFileContent = appendRouteHandlers(routeFileContent, routeDefinitions);
+  routeFileContent = appendRouteHandlers(routeFileContent, routeDefinitions, {
+    useService: flags.useService,
+    serviceName,
+  });
 
   await fs.writeFile(routeFilePath, routeFileContent);
 
@@ -150,12 +219,12 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
       .at(-1)?.index;
 
     if (lastRegisterIndex === undefined) {
-      const autoRoutesCommentIndex = indexLines.findIndex((line) => line.includes("AUTO ROUTES"));
+      const startFunctionIndex = indexLines.findIndex((line) => line.trim().startsWith("const start = async"));
 
-      if (autoRoutesCommentIndex === -1) {
+      if (startFunctionIndex === -1) {
         indexLines.push("", registerLine);
       } else {
-        indexLines.splice(autoRoutesCommentIndex + 1, 0, registerLine);
+        indexLines.splice(startFunctionIndex, 0, registerLine, "");
       }
     } else {
       indexLines.splice(lastRegisterIndex + 1, 0, registerLine);

@@ -11,7 +11,7 @@ program
   .command("generate <type> <name>")
   .option(
     "-a, --action <method>",
-    "HTTP method for the module root route. Repeat -a for multiple methods (e.g. -a get -a post).",
+    "Action to generate. For routes use HTTP methods (e.g. -a get -a post). For storage use insert|del|update|findOne|all.",
     (value: string, previous: string[] = []) => [...previous, value],
     [],
   )
@@ -21,16 +21,24 @@ program
     (value: string, previous: string[] = []) => [...previous, value],
     [],
   )
-  .action(async (type: "route" | "storage" | "crud", name: string, options: { route: string[]; action: string[] }) => {
+  .option("-s, --service", "For route generation, map generated handlers to service methods")
+  .action(async (type: "route" | "storage" | "crud", name: string, options: { route: string[]; action: string[]; service?: boolean }) => {
     const rootActionRoutes = options.action.map((method) => `${method}|/`);
     const routeDefinitions = [...rootActionRoutes, ...options.route];
 
+    if (type === "route" && options.service && options.action.length === 0) {
+      throw new Error("Invalid flags: -s can only be used when -a is provided.");
+    }
+
     switch (type) {
       case "route":
-        await generateRoute(name, routeDefinitions);
+        await generateRoute(name, routeDefinitions, {
+          autoCrud: options.action.length > 0,
+          useService: !!options.service,
+        });
         break;
       case "storage":
-        await generateStorage(name);
+        await generateStorage(name, options.action);
         break;
       case "crud":
         await generateCrud(name);

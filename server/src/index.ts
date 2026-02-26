@@ -1,19 +1,8 @@
 import fastify from "fastify";
 
 import { db } from "./db/client";
-import userRoutes from "./user/user.routes";
-import chatRoutes from "./chat/chat.routes";
-import organizationRoutes from "./organization/organization.routes";
 
 const app = fastify({ logger: true });
-
-app.register(userRoutes, { prefix: "/user" });
-app.register(chatRoutes, { prefix: "/chat" });
-app.register(organizationRoutes, { prefix: "/organization" });
-
-app.get("/", async (request, reply) => {
-  return { hello: "world" };
-});
 
 const start = async () => {
   try {
