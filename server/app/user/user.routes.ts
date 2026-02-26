@@ -6,7 +6,7 @@ import { CreateUserDtoSchema, UpdateUserDtoSchema, UserDtoSchema } from "./user.
 import { defineRoute } from "@libs/defineRoute";
 
 const IdParamsSchema = Schema.Struct({
-  id: Schema.NumberFromString,
+  id: Schema.UUID,
 });
 
 function mapUserServiceError(error: UserServiceError): { statusCode: 404 | 500; message: string } {

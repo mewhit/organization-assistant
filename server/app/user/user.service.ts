@@ -30,7 +30,7 @@ export class UserService {
     );
   }
 
-  static findOne(id: number): Effect.Effect<User, UserServiceError> {
+  static findOne(id: string): Effect.Effect<User, UserServiceError> {
     return UserStorage.findOne(id).pipe(
       Effect.mapError(() => new UserPersistenceError()),
       Effect.flatMap(
@@ -42,11 +42,11 @@ export class UserService {
     );
   }
 
-  static find(id: number) {
+  static find(id: string) {
     return this.findOne(id);
   }
 
-  static update(id: number, payload: UpdatableUser): Effect.Effect<User, UserServiceError> {
+  static update(id: string, payload: UpdatableUser): Effect.Effect<User, UserServiceError> {
     return UserStorage.update(id, payload).pipe(
       Effect.mapError(() => new UserPersistenceError()),
       Effect.flatMap(
@@ -58,7 +58,7 @@ export class UserService {
     );
   }
 
-  static remove(id: number): Effect.Effect<User, UserServiceError> {
+  static remove(id: string): Effect.Effect<User, UserServiceError> {
     return UserStorage.del(id).pipe(
       Effect.mapError(() => new UserPersistenceError()),
       Effect.flatMap(

@@ -2,8 +2,11 @@ import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import apiReference from "@scalar/fastify-api-reference";
 
-import { db } from "./db/client";
+import { db } from "../db/client";
 import userRoutes from "./user/user.routes";
+import organizationRoutes from "./organization/organization.routes";
+import organizationUserRoutes from "./organization-user/organization-user.routes";
+import ognanizationContextRoutes from "./ognanization-context/ognanization-context.routes";
 
 const app = Fastify({ logger: true });
 
@@ -33,7 +36,15 @@ const start = async () => {
       routePrefix: "/docs",
     });
 
+    app.get("/json-docs", async (_req, reply) => {
+      reply.type("application/json");
+      return app.swagger();
+    });
+
     await app.register(userRoutes, { prefix: "/user" });
+    await app.register(organizationRoutes, { prefix: "/organization" });
+    await app.register(organizationUserRoutes, { prefix: "/organization-user" });
+    await app.register(ognanizationContextRoutes, { prefix: "/ognanization-context" });
 
     await app.listen({ port, host: "0.0.0.0" });
 

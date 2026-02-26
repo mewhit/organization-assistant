@@ -40,7 +40,7 @@ export class ${serviceName} {
     );
   }
 
-  static findOne(id: number): Effect.Effect<${className}, ${className}ServiceError> {
+  static findOne(id: string): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.findOne(id).pipe(
       Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
@@ -52,11 +52,11 @@ export class ${serviceName} {
     );
   }
 
-  static find(id: number) {
+  static find(id: string) {
     return this.findOne(id);
   }
 
-  static update(id: number, payload: Updatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
+  static update(id: string, payload: Updatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.update(id, payload).pipe(
       Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
@@ -68,7 +68,7 @@ export class ${serviceName} {
     );
   }
 
-  static remove(id: number): Effect.Effect<${className}, ${className}ServiceError> {
+  static remove(id: string): Effect.Effect<${className}, ${className}ServiceError> {
     return ${storageName}.del(id).pipe(
       Effect.mapError(() => new ${className}PersistenceError()),
       Effect.flatMap(
@@ -120,7 +120,7 @@ export async function generateCrud(name: string) {
   const className = toPascalCase(name);
   const serviceName = `${className}Service`;
   const storageName = `${className}Storage`;
-  const modulePath = path.join("src", name);
+  const modulePath = path.join("app", name);
   const serviceFilePath = path.join(modulePath, `${name}.service.ts`);
   const dtoFilePath = path.join(modulePath, `${name}.dto.ts`);
   const entityFilePath = path.join(modulePath, `${name}.entity.ts`);

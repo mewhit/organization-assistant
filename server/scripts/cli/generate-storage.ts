@@ -55,7 +55,7 @@ function buildStorageTemplate(
   }
 
   if (actions.includes("del")) {
-    methodBlocks.push(`  static del(id: number): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    methodBlocks.push(`  static del(id: string): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
     return Effect.tryPromise({
       try: async () => {
         const rows = await db.delete(${tableVariableName}).where(eq(${tableVariableName}.id, id)).returning();
@@ -68,7 +68,7 @@ function buildStorageTemplate(
   }
 
   if (actions.includes("update")) {
-    methodBlocks.push(`  static update(id: number, payload: Partial<${insertTypeName}>): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    methodBlocks.push(`  static update(id: string, payload: Partial<${insertTypeName}>): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
     return Effect.tryPromise({
       try: async () => {
         const rows = await db.update(${tableVariableName}).set(payload).where(eq(${tableVariableName}.id, id)).returning();
@@ -81,7 +81,7 @@ function buildStorageTemplate(
   }
 
   if (actions.includes("findOne")) {
-    methodBlocks.push(`  static findOne(id: number): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    methodBlocks.push(`  static findOne(id: string): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
     return Effect.tryPromise({
       try: async () => {
         const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
@@ -103,8 +103,8 @@ function buildStorageTemplate(
     lines.push(
       'import { Effect, Option } from "effect";',
       "",
-      'import { db } from "@db/client";',
-      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "../db/schemas/${tableName}.schema";`,
+      'import { db } from "db/client";',
+      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "../../db/schemas/${tableName}.schema";`,
       "",
       "export class DbError {",
       '  readonly _tag = "DbError";',
@@ -124,7 +124,7 @@ function buildStorageTemplate(
 }
 
 async function registerSchemaTable(tableName: string, tableVariableName: string) {
-  const schemaRegistryPath = path.join("src", "db", "schema.ts");
+  const schemaRegistryPath = path.join("db", "schema.ts");
   const schemaRegistryContent = await fs.readFile(schemaRegistryPath, "utf-8");
   const importLine = `import { ${tableVariableName} } from "./schemas/${tableName}.schema";`;
   const tablePropertyLine = `  ${tableVariableName},`;
@@ -171,12 +171,12 @@ async function registerSchemaTable(tableName: string, tableVariableName: string)
 }
 
 export async function generateStorage(name: string, actionOptions: string[] = []) {
-  const modulePath = path.join("src", name);
+  const modulePath = path.join("app", name);
   const storageFilePath = path.join(modulePath, `${name}.storage.ts`);
   const pascalCaseName = toPascalCase(name);
   const tableName = pluralize(name);
   const tableVariableName = `${toCamelCase(tableName)}Table`;
-  const dbSchemaPath = path.join("src", "db", "schemas", `${tableName}.schema.ts`);
+  const dbSchemaPath = path.join("db", "schemas", `${tableName}.schema.ts`);
   const selectedActions = parseStorageActions(actionOptions);
 
   await fs.mkdir(modulePath, { recursive: true });
@@ -185,10 +185,10 @@ export async function generateStorage(name: string, actionOptions: string[] = []
   const storageTemplate = buildStorageTemplate(pascalCaseName, tableVariableName, tableName, selectedActions).trim();
 
   const dbSchemaTemplate = `
-import { pgTable, serial,  timestamp } from "drizzle-orm/pg-core";
+import { pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const ${tableVariableName} = pgTable("${tableName}", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   updatedAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -209,5 +209,5 @@ export type New${pascalCaseName}Record = typeof ${tableVariableName}.$inferInser
     console.log(`✅ Generated storage actions: ${selectedActions.join(", ")}`);
   }
   console.log(`✅ Created db schema: db/schemas/${tableName}/schema.ts`);
-  console.log("✅ Registered schema in src/db/schema.ts");
+  console.log("✅ Registered schema in db/schema.ts");
 }

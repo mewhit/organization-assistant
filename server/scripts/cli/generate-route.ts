@@ -82,7 +82,7 @@ import { Create${className}DtoSchema, Update${className}DtoSchema, ${className}D
 import { defineRoute } from "@libs/defineRoute";
 
 const IdParamsSchema = Schema.Struct({
-  id: Schema.NumberFromString,
+  id: Schema.UUID,
 });
 
 function map${className}ServiceError(error: ${className}ServiceError): { statusCode: 404 | 500; message: string } {
@@ -153,7 +153,7 @@ function buildServiceBackedHandler(definition: RouteDefinition, serviceName: str
   const paramName = getRouteParam(path);
 
   if (method === "get" && paramName) {
-    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.findOne(Number(request.params?.${paramName}));\n  });`;
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.findOne(request.params?.${paramName});\n  });`;
   }
 
   if (method === "post") {
@@ -161,11 +161,11 @@ function buildServiceBackedHandler(definition: RouteDefinition, serviceName: str
   }
 
   if ((method === "put" || method === "patch") && paramName) {
-    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.update(Number(request.params?.${paramName}), request.body ?? {});\n  });`;
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.update(request.params?.${paramName}, request.body ?? {});\n  });`;
   }
 
   if (method === "delete" && paramName) {
-    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.remove(Number(request.params?.${paramName}));\n  });`;
+    return `  app.${method}("${path}", async (request: any) => {\n    return ${serviceName}.remove(request.params?.${paramName});\n  });`;
   }
 
   return `  app.${method}("${path}", async () => {\n    return {};\n  });`;
@@ -233,7 +233,7 @@ export async function generateRoute(name: string, routeOptions: string[] = [], f
     throw new Error("Invalid flags: -s can only be used when -a is provided.");
   }
 
-  const modulePath = path.join("src", name);
+  const modulePath = path.join("app", name);
   const routeFilePath = path.join(modulePath, `${name}.routes.ts`);
   const routeHandlerName = `${toCamelCase(name)}Routes`;
   const serviceName = `${toPascalCase(name)}Service`;
@@ -293,7 +293,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
 
   console.log(`✅ Created module: ${name}`);
 
-  const indexPath = path.join("src", "index.ts");
+  const indexPath = path.join("app", "index.ts");
   const indexContent = await fs.readFile(indexPath, "utf-8");
 
   const importPath = `"./${name}/${name}.routes"`;

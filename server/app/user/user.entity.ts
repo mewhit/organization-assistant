@@ -1,4 +1,4 @@
-import { type NewUserRecord, type UserRecord } from "../db/schemas/users.schema";
+import { type NewUserRecord, type UserRecord } from "../../db/schemas/users.schema";
 
 export type User = UserRecord;
 
