@@ -8,6 +8,16 @@ export function toCamelCase(value: string) {
     .join("");
 }
 
+export function toPascalCase(value: string) {
+  const camelCaseValue = toCamelCase(value);
+
+  if (!camelCaseValue) {
+    return "";
+  }
+
+  return camelCaseValue.charAt(0).toUpperCase() + camelCaseValue.slice(1);
+}
+
 export function pluralize(name: string) {
   if (name.endsWith("ch") || name.endsWith("sh") || /[sxz]$/.test(name)) {
     return `${name}es`;

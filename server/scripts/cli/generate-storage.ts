@@ -1,14 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { pluralize, toCamelCase } from "./name-case";
-
-function toPascalCase(value: string) {
-  return value
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
-    .join("");
-}
+import { pluralize, toCamelCase, toPascalCase } from "./name-case";
 
 const STORAGE_ACTIONS = ["insert", "del", "update", "findOne", "all"] as const;
 type StorageAction = (typeof STORAGE_ACTIONS)[number];
@@ -40,7 +32,6 @@ function parseStorageActions(actions: string[]) {
 }
 
 function buildStorageTemplate(
-  camelCaseName: string,
   pascalCaseName: string,
   tableVariableName: string,
   tableName: string,
@@ -52,30 +43,53 @@ function buildStorageTemplate(
   const insertTypeName = `New${pascalCaseName}Record`;
 
   if (actions.includes("insert")) {
-    methodBlocks.push(`  static async insert(payload: ${insertTypeName}): Promise<${selectTypeName} | null> {
-    const rows = await db.insert(${tableVariableName}).values(payload).returning();
-    return rows.at(0) ?? null;
+    methodBlocks.push(`  static insert(payload: ${insertTypeName}): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const rows = await db.insert(${tableVariableName}).values(payload).returning();
+        return Option.fromNullable(rows.at(0));
+      },
+      catch: (error) => new DbError(error),
+    });
   }`);
   }
 
   if (actions.includes("del")) {
-    methodBlocks.push(`  static async del(id: number): Promise<${selectTypeName} | null> {
-    const rows = await db.delete(${tableVariableName}).where(eq(${tableVariableName}.id, id)).returning();
-    return rows.at(0) ?? null;
+    methodBlocks.push(`  static del(id: number): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const rows = await db.delete(${tableVariableName}).where(eq(${tableVariableName}.id, id)).returning();
+
+        return Option.fromNullable(rows.at(0));
+      },
+      catch: (error) => new DbError(error),
+    });
   }`);
   }
 
   if (actions.includes("update")) {
-    methodBlocks.push(`  static async update(id: number, payload: Partial<${insertTypeName}>): Promise<${selectTypeName} | null> {
-    const rows = await db.update(${tableVariableName}).set(payload).where(eq(${tableVariableName}.id, id)).returning();
-    return rows.at(0) ?? null;
+    methodBlocks.push(`  static update(id: number, payload: Partial<${insertTypeName}>): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const rows = await db.update(${tableVariableName}).set(payload).where(eq(${tableVariableName}.id, id)).returning();
+
+        return Option.fromNullable(rows.at(0));
+      },
+      catch: (error) => new DbError(error),
+    });
   }`);
   }
 
   if (actions.includes("findOne")) {
-    methodBlocks.push(`  static async findOne(id: number): Promise<${selectTypeName} | null> {
-    const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
-    return rows.at(0) ?? null;
+    methodBlocks.push(`  static findOne(id: number): Effect.Effect<Option.Option<${selectTypeName}>, DbError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const rows = await db.select().from(${tableVariableName}).where(eq(${tableVariableName}.id, id)).limit(1);
+
+        return Option.fromNullable(rows.at(0));
+      },
+      catch: (error) => new DbError(error),
+    });
   }`);
   }
 
@@ -87,16 +101,23 @@ function buildStorageTemplate(
 
   if (actions.length > 0) {
     lines.push(
+      'import { Effect, Option } from "effect";',
+      "",
       'import { db } from "@db/client";',
       `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "../db/schemas/${tableName}.schema";`,
+      "",
+      "export class DbError {",
+      '  readonly _tag = "DbError";',
+      "  constructor(readonly cause: unknown) {}",
+      "}",
       "",
     );
   }
 
   if (methodBlocks.length === 0) {
-    lines.push(`export class ${camelCaseName}Storage {}`);
+    lines.push(`export class ${pascalCaseName}Storage {}`);
   } else {
-    lines.push(`export class ${camelCaseName}Storage {`, `${methodBlocks.join("\n\n")}`, `}`);
+    lines.push(`export class ${pascalCaseName}Storage {`, `${methodBlocks.join("\n\n")}`, `}`);
   }
 
   return lines.join("\n");
@@ -152,7 +173,6 @@ async function registerSchemaTable(tableName: string, tableVariableName: string)
 export async function generateStorage(name: string, actionOptions: string[] = []) {
   const modulePath = path.join("src", name);
   const storageFilePath = path.join(modulePath, `${name}.storage.ts`);
-  const camelCaseName = toCamelCase(name);
   const pascalCaseName = toPascalCase(name);
   const tableName = pluralize(name);
   const tableVariableName = `${toCamelCase(tableName)}Table`;
@@ -162,7 +182,7 @@ export async function generateStorage(name: string, actionOptions: string[] = []
   await fs.mkdir(modulePath, { recursive: true });
   await fs.mkdir(path.dirname(dbSchemaPath), { recursive: true });
 
-  const storageTemplate = buildStorageTemplate(camelCaseName, pascalCaseName, tableVariableName, tableName, selectedActions).trim();
+  const storageTemplate = buildStorageTemplate(pascalCaseName, tableVariableName, tableName, selectedActions).trim();
 
   const dbSchemaTemplate = `
 import { pgTable, serial,  timestamp } from "drizzle-orm/pg-core";

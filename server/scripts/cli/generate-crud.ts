@@ -2,72 +2,137 @@ import fs from "fs/promises";
 import path from "path";
 import { generateRoute } from "./generate-route";
 import { generateStorage } from "./generate-storage";
-import { toCamelCase } from "./name-case";
+import { toCamelCase, toPascalCase } from "./name-case";
 
-function toPascalCase(value: string) {
-  return value
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
-    .join("");
+function buildServiceTemplate(name: string, className: string, serviceName: string, storageName: string) {
+  const entityVarName = toCamelCase(className);
+
+  return `
+import { Effect, Option } from "effect";
+
+import { ${storageName} } from "./${name}.storage";
+import { type ${className}, type Creatable${className}, type Updatable${className} } from "./${name}.entity";
+
+export class ${className}NotFound {
+  readonly _tag = "${className}NotFound";
 }
 
-function buildServiceTemplate(name: string, serviceName: string, storageName: string) {
-  return `
-import { ${storageName} } from "./${name}.storage";
+export class ${className}AlreadyExists {
+  readonly _tag = "${className}AlreadyExists";
+}
+
+export class ${className}PersistenceError {
+  readonly _tag = "${className}PersistenceError";
+}
+
+export type ${className}ServiceError = ${className}NotFound | ${className}AlreadyExists | ${className}PersistenceError;
 
 export class ${serviceName} {
-  static create(payload: Record<string, unknown>) {
-    return ${storageName}.insert(payload);
+  static create(payload: Creatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
+    return ${storageName}.insert(payload).pipe(
+      Effect.mapError(() => new ${className}PersistenceError()),
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(new ${className}PersistenceError()),
+          onSome: (${entityVarName}) => Effect.succeed(${entityVarName}),
+        }),
+      ),
+    );
   }
 
-  static findOne(id: number) {
-    return ${storageName}.findOne(id);
+  static findOne(id: number): Effect.Effect<${className}, ${className}ServiceError> {
+    return ${storageName}.findOne(id).pipe(
+      Effect.mapError(() => new ${className}PersistenceError()),
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(new ${className}NotFound()),
+          onSome: (${entityVarName}) => Effect.succeed(${entityVarName}),
+        }),
+      ),
+    );
   }
 
   static find(id: number) {
-    return ${serviceName}.findOne(id);
+    return this.findOne(id);
   }
 
-  static update(id: number, payload: Record<string, unknown>) {
-    return ${storageName}.update(id, payload);
+  static update(id: number, payload: Updatable${className}): Effect.Effect<${className}, ${className}ServiceError> {
+    return ${storageName}.update(id, payload).pipe(
+      Effect.mapError(() => new ${className}PersistenceError()),
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(new ${className}NotFound()),
+          onSome: (${entityVarName}) => Effect.succeed(${entityVarName}),
+        }),
+      ),
+    );
   }
 
-  static remove(id: number) {
-    return ${storageName}.del(id);
+  static remove(id: number): Effect.Effect<${className}, ${className}ServiceError> {
+    return ${storageName}.del(id).pipe(
+      Effect.mapError(() => new ${className}PersistenceError()),
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(new ${className}NotFound()),
+          onSome: (${entityVarName}) => Effect.succeed(${entityVarName}),
+        }),
+      ),
+    );
   }
 }
 `.trim();
 }
 
-function buildDtoSchemaTemplate(className: string) {
+function buildDtoTemplate(className: string) {
   return `
 import { Schema } from "effect";
 
+export const ${className}DtoSchema = Schema.Struct({});
+
 export const Create${className}DtoSchema = Schema.Struct({});
 
+export const Update${className}DtoSchema = Schema.partial(Create${className}DtoSchema);
+
 export type Create${className}Dto = Schema.Schema.Type<typeof Create${className}DtoSchema>;
+export type Update${className}Dto = Schema.Schema.Type<typeof Update${className}DtoSchema>;
+
+export type ${className}Dto = Schema.Schema.Type<typeof ${className}DtoSchema>;
+`.trim();
+}
+
+function buildEntityTemplate(className: string) {
+  return `
+export type ${className} = {};
+
+export type Creatable${className} = {};
+
+export type Updatable${className} = {};
 `.trim();
 }
 
 export async function generateCrud(name: string) {
-  await generateRoute(name, ["get|/:id", "post|/", "patch|/:id", "put|/:id", "delete|/:id"]);
+  await generateRoute(name, ["get|/:id", "post|/", "patch|/:id", "put|/:id", "delete|/:id"], {
+    autoCrud: true,
+    useService: true,
+  });
   await generateStorage(name, ["all"]);
 
   const className = toPascalCase(name);
-  const camelCaseName = toCamelCase(name);
-  const serviceName = `${camelCaseName}Service`;
-  const storageName = `${camelCaseName}Storage`;
+  const serviceName = `${className}Service`;
+  const storageName = `${className}Storage`;
   const modulePath = path.join("src", name);
   const serviceFilePath = path.join(modulePath, `${name}.service.ts`);
-  const dtoSchemaFilePath = path.join(modulePath, `${name}.dto.schema.ts`);
+  const dtoFilePath = path.join(modulePath, `${name}.dto.ts`);
+  const entityFilePath = path.join(modulePath, `${name}.entity.ts`);
 
-  const serviceTemplate = buildServiceTemplate(name, serviceName, storageName);
-  const dtoSchemaTemplate = buildDtoSchemaTemplate(className);
+  const serviceTemplate = buildServiceTemplate(name, className, serviceName, storageName);
+  const dtoTemplate = buildDtoTemplate(className);
+  const entityTemplate = buildEntityTemplate(className);
 
   await fs.writeFile(serviceFilePath, serviceTemplate);
-  await fs.writeFile(dtoSchemaFilePath, dtoSchemaTemplate);
+  await fs.writeFile(dtoFilePath, dtoTemplate);
+  await fs.writeFile(entityFilePath, entityTemplate);
 
   console.log(`✅ Created CRUD module: ${name}`);
-  console.log(`✅ Generated ${name}.routes.ts, ${name}.service.ts, ${name}.dto.schema.ts, and ${name}.storage.ts`);
+  console.log(`✅ Generated ${name}.routes.ts, ${name}.service.ts, ${name}.dto.ts, ${name}.entity.ts, and ${name}.storage.ts`);
 }

@@ -5,15 +5,16 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
-      "@db/*": ["src/db/*"]
+      "@db/*": ["src/db/*"],
+      "@libs/*": ["libs/*"]
     },
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "libs/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

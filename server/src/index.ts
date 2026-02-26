@@ -1,8 +1,15 @@
-import fastify from "fastify";
+import Fastify from "fastify";
+import swagger from "@fastify/swagger";
+import apiReference from "@scalar/fastify-api-reference";
 
 import { db } from "./db/client";
+import userRoutes from "./user/user.routes";
 
-const app = fastify({ logger: true });
+const app = Fastify({ logger: true });
+
+app.setValidatorCompiler(() => {
+  return () => true;
+});
 
 const start = async () => {
   try {
@@ -11,6 +18,22 @@ const start = async () => {
     if (!db) {
       app.log.warn("DATABASE_URL is not set. Drizzle ORM is configured but database features are disabled.");
     }
+
+    await app.register(swagger, {
+      openapi: {
+        openapi: "3.1.0",
+        info: {
+          title: "My API",
+          version: "1.0.0",
+        },
+      },
+    });
+
+    await app.register(apiReference, {
+      routePrefix: "/docs",
+    });
+
+    await app.register(userRoutes, { prefix: "/user" });
 
     await app.listen({ port, host: "0.0.0.0" });
 

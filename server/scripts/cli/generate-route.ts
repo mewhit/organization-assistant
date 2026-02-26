@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { toCamelCase } from "./name-case";
+import { toCamelCase, toPascalCase } from "./name-case";
 
 const HTTP_METHODS = ["get", "post", "put", "delete", "patch"] as const;
 type HttpMethod = (typeof HTTP_METHODS)[number];
@@ -13,6 +13,8 @@ type GenerateRouteFlags = {
   autoCrud?: boolean;
   useService?: boolean;
 };
+
+const CRUD_ROUTE_SIGNATURE = ["post:/", "get:/:id", "patch:/:id", "put:/:id", "delete:/:id"] as const;
 
 function normalizeRoutePath(routePath: string) {
   const trimmedPath = routePath.trim();
@@ -56,6 +58,91 @@ function parseRouteDefinitions(routeOptions: string[]) {
   return definitions;
 }
 
+function hasCrudRouteSignature(definitions: RouteDefinition[]) {
+  if (definitions.length !== CRUD_ROUTE_SIGNATURE.length) {
+    return false;
+  }
+
+  const normalized = definitions.map(({ method, path }) => `${method}:${path}`).sort();
+  const expected = [...CRUD_ROUTE_SIGNATURE].sort();
+
+  return normalized.every((value, index) => value === expected[index]);
+}
+
+function buildCrudServiceRouteTemplate(name: string) {
+  const className = toPascalCase(name);
+  const routeHandlerName = `${toCamelCase(name)}Routes`;
+
+  return `
+import { FastifyInstance } from "fastify";
+import { Effect, Schema } from "effect";
+
+import { ${className}Service, ${className}NotFound, ${className}PersistenceError, ${className}ServiceError } from "./${name}.service";
+import { Create${className}DtoSchema, Update${className}DtoSchema, ${className}DtoSchema } from "./${name}.dto";
+import { defineRoute } from "@libs/defineRoute";
+
+const IdParamsSchema = Schema.Struct({
+  id: Schema.NumberFromString,
+});
+
+function map${className}ServiceError(error: ${className}ServiceError): { statusCode: 404 | 500; message: string } {
+  if (error instanceof ${className}NotFound) {
+    return { statusCode: 404, message: "${className} not found" };
+  }
+
+  if (error instanceof ${className}PersistenceError) {
+    return { statusCode: 500, message: "Database error" };
+  }
+
+  return { statusCode: 500, message: "Internal server error" };
+}
+
+export default async function ${routeHandlerName}(app: FastifyInstance) {
+  defineRoute(app, {
+    method: "POST",
+    url: "/",
+    input: Create${className}DtoSchema,
+    output: ${className}DtoSchema,
+    handler: (input) => ${className}Service.create(input).pipe(Effect.mapError(map${className}ServiceError)),
+  });
+
+  defineRoute(app, {
+    method: "GET",
+    url: "/:id",
+    params: IdParamsSchema,
+    output: ${className}DtoSchema,
+    handler: (_, params) => ${className}Service.findOne(params.id).pipe(Effect.mapError(map${className}ServiceError)),
+  });
+
+  defineRoute(app, {
+    method: "PATCH",
+    url: "/:id",
+    input: Update${className}DtoSchema,
+    params: IdParamsSchema,
+    output: ${className}DtoSchema,
+    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(map${className}ServiceError)),
+  });
+
+  defineRoute(app, {
+    method: "PUT",
+    url: "/:id",
+    input: Update${className}DtoSchema,
+    params: IdParamsSchema,
+    output: ${className}DtoSchema,
+    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(map${className}ServiceError)),
+  });
+
+  defineRoute(app, {
+    method: "DELETE",
+    url: "/:id",
+    params: IdParamsSchema,
+    output: ${className}DtoSchema,
+    handler: (_, params) => ${className}Service.remove(params.id).pipe(Effect.mapError(map${className}ServiceError)),
+  });
+}
+`.trim();
+}
+
 function getRouteParam(routePath: string) {
   const match = routePath.match(/:([a-zA-Z0-9_]+)/);
   return match?.[1] ?? null;
@@ -93,35 +180,50 @@ function appendRouteHandlers(
     return routeFileContent;
   }
 
-  const handlers = definitions
-    .filter(({ method, path }) => {
-      const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const methodMatcher = new RegExp(`app\\.${method}\\(\\s*\"${escapedPath}\"`);
+  let updatedRouteFileContent = routeFileContent;
+  const handlersToAppend: string[] = [];
 
-      return !methodMatcher.test(routeFileContent);
-    })
-    .map((definition) => {
-      if (options?.useService && options.serviceName) {
-        return buildServiceBackedHandler(definition, options.serviceName);
+  for (const definition of definitions) {
+    const { method, path } = definition;
+    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const existingRouteMatcher = new RegExp(`app\\.${method}\\(\\s*\"${escapedPath}\"`);
+
+    if (options?.useService && options.serviceName) {
+      const serviceHandler = buildServiceBackedHandler(definition, options.serviceName);
+      const existingHandlerMatcher = new RegExp(
+        `\\s*app\\.${method}\\(\\s*\"${escapedPath}\"\\s*,\\s*async\\s*\\([^)]*\\)\\s*=>\\s*\\{[\\s\\S]*?\\n\\s*\\}\\s*\\);?`,
+      );
+
+      if (existingHandlerMatcher.test(updatedRouteFileContent)) {
+        updatedRouteFileContent = updatedRouteFileContent.replace(existingHandlerMatcher, `\n${serviceHandler}`);
+      } else {
+        handlersToAppend.push(serviceHandler);
       }
 
-      const { method, path } = definition;
-      return `  app.${method}(\"${path}\", async () => {\n    return {};\n  });`;
-    })
-    .join("\n\n");
+      continue;
+    }
 
-  if (!handlers) {
-    return routeFileContent;
+    if (existingRouteMatcher.test(updatedRouteFileContent)) {
+      continue;
+    }
+
+    handlersToAppend.push(`  app.${method}(\"${path}\", async () => {\n    return {};\n  });`);
   }
 
-  const closeIndex = routeFileContent.lastIndexOf("}");
+  const handlers = handlersToAppend.join("\n\n");
+
+  if (!handlers) {
+    return updatedRouteFileContent;
+  }
+
+  const closeIndex = updatedRouteFileContent.lastIndexOf("}");
 
   if (closeIndex === -1) {
     throw new Error("Route file does not contain a valid function block.");
   }
 
-  const beforeClose = routeFileContent.slice(0, closeIndex).trimEnd();
-  const afterClose = routeFileContent.slice(closeIndex);
+  const beforeClose = updatedRouteFileContent.slice(0, closeIndex).trimEnd();
+  const afterClose = updatedRouteFileContent.slice(closeIndex);
 
   return `${beforeClose}\n\n${handlers}\n${afterClose}`;
 }
@@ -134,9 +236,16 @@ export async function generateRoute(name: string, routeOptions: string[] = [], f
   const modulePath = path.join("src", name);
   const routeFilePath = path.join(modulePath, `${name}.routes.ts`);
   const routeHandlerName = `${toCamelCase(name)}Routes`;
-  const serviceName = `${toCamelCase(name)}Service`;
+  const serviceName = `${toPascalCase(name)}Service`;
+  const routeDefinitions = parseRouteDefinitions(routeOptions);
+  const shouldUseCrudServiceTemplate = flags.autoCrud && flags.useService && hasCrudRouteSignature(routeDefinitions);
 
   await fs.mkdir(modulePath, { recursive: true });
+
+  if (shouldUseCrudServiceTemplate) {
+    const crudRouteTemplate = buildCrudServiceRouteTemplate(name);
+    await fs.writeFile(routeFilePath, crudRouteTemplate);
+  }
 
   const template = `
 import { FastifyInstance } from "fastify"
@@ -148,13 +257,15 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
 
   let routeFileContent = template;
 
-  try {
-    routeFileContent = await fs.readFile(routeFilePath, "utf-8");
-  } catch {
-    routeFileContent = template;
+  if (!shouldUseCrudServiceTemplate) {
+    try {
+      routeFileContent = await fs.readFile(routeFilePath, "utf-8");
+    } catch {
+      routeFileContent = template;
+    }
   }
 
-  if (flags.useService && !routeFileContent.includes(`"./${name}.service"`)) {
+  if (flags.useService && !shouldUseCrudServiceTemplate && !routeFileContent.includes(`"./${name}.service"`)) {
     const serviceImportLine = `import { ${serviceName} } from "./${name}.service"`;
     const routeLines = routeFileContent.split("\n");
     const lastImportIndex = [...routeLines]
@@ -171,13 +282,14 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     routeFileContent = routeLines.join("\n");
   }
 
-  const routeDefinitions = parseRouteDefinitions(routeOptions);
-  routeFileContent = appendRouteHandlers(routeFileContent, routeDefinitions, {
-    useService: flags.useService,
-    serviceName,
-  });
+  if (!shouldUseCrudServiceTemplate) {
+    routeFileContent = appendRouteHandlers(routeFileContent, routeDefinitions, {
+      useService: flags.useService,
+      serviceName,
+    });
 
-  await fs.writeFile(routeFilePath, routeFileContent);
+    await fs.writeFile(routeFilePath, routeFileContent);
+  }
 
   console.log(`✅ Created module: ${name}`);
 
@@ -186,7 +298,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
 
   const importPath = `"./${name}/${name}.routes"`;
   const importLine = `import ${routeHandlerName} from "./${name}/${name}.routes"`;
-  const registerLine = `app.register(${routeHandlerName}, { prefix: "/${name}" })`;
+  const registerLine = `    await app.register(${routeHandlerName}, { prefix: "/${name}" });`;
 
   const indexLines = indexContent.split("\n");
   const existingImportIndex = indexLines.findIndex((line) => line.includes(importPath));
@@ -207,31 +319,33 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
   }
 
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const prefixMatcher = new RegExp(`^app\\.register\\(.+\"/${escapedName}\"\\s*\\}\\s*\\);?$`);
-  const existingRegisterIndex = indexLines.findIndex((line) => prefixMatcher.test(line.trim()));
+  const prefixMatcher = new RegExp(`^(?:await\\s+)?app\\.register\\(.+[\"']/${escapedName}[\"']\\s*\\}\\s*\\);?$`);
+  const filteredIndexLines = indexLines.filter((line) => !prefixMatcher.test(line.trim()));
 
-  if (existingRegisterIndex !== -1) {
-    indexLines[existingRegisterIndex] = registerLine;
+  const lastRegisterIndex = [...filteredIndexLines]
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^(?:await\s+)?app\.register\(/.test(line.trim()))
+    .at(-1)?.index;
+
+  if (lastRegisterIndex !== undefined) {
+    filteredIndexLines.splice(lastRegisterIndex + 1, 0, registerLine);
   } else {
-    const lastRegisterIndex = [...indexLines]
-      .map((line, index) => ({ line, index }))
-      .filter(({ line }) => line.trim().startsWith("app.register("))
-      .at(-1)?.index;
+    const listenIndex = filteredIndexLines.findIndex((line) => /^(?:await\s+)?app\.listen\(/.test(line.trim()));
 
-    if (lastRegisterIndex === undefined) {
-      const startFunctionIndex = indexLines.findIndex((line) => line.trim().startsWith("const start = async"));
+    if (listenIndex !== -1) {
+      filteredIndexLines.splice(listenIndex, 0, registerLine);
+    } else {
+      const startFunctionIndex = filteredIndexLines.findIndex((line) => line.trim().startsWith("const start = async"));
 
       if (startFunctionIndex === -1) {
-        indexLines.push("", registerLine);
+        filteredIndexLines.push("", registerLine.trim());
       } else {
-        indexLines.splice(startFunctionIndex, 0, registerLine, "");
+        filteredIndexLines.splice(startFunctionIndex + 1, 0, registerLine);
       }
-    } else {
-      indexLines.splice(lastRegisterIndex + 1, 0, registerLine);
     }
   }
 
-  const updatedContent = indexLines.join("\n");
+  const updatedContent = filteredIndexLines.join("\n");
 
   await fs.writeFile(indexPath, updatedContent);
 
