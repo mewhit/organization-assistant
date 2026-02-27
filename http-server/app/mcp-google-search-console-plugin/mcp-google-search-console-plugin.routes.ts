@@ -2,7 +2,11 @@ import { FastifyInstance } from "fastify";
 import { Effect } from "effect";
 import { defineRoute } from "@libs/defineRoute";
 
-import { GscExecuteResultDtoSchema, GscExecuteToolDtoSchema, GscToolsListDtoSchema } from "./mcp-google-search-console-plugin.dto";
+import {
+  GscExecuteResultDtoSchema,
+  GscExecuteToolDtoSchema,
+  GscToolsListDtoSchema,
+} from "./mcp-google-search-console-plugin.dto";
 import { McpGoogleSearchConsolePluginService } from "./mcp-google-search-console-plugin.service";
 
 export default async function mcpGoogleSearchConsolePluginRoutes(app: FastifyInstance) {
@@ -19,7 +23,7 @@ export default async function mcpGoogleSearchConsolePluginRoutes(app: FastifyIns
     input: GscExecuteToolDtoSchema,
     output: GscExecuteResultDtoSchema,
     handler: (input) =>
-      McpGoogleSearchConsolePluginService.executeTool(input.tool, input.input).pipe(
+      McpGoogleSearchConsolePluginService.executeTool(input.tool, input.input, input.credentials).pipe(
         Effect.mapError(McpGoogleSearchConsolePluginService.mapErrorToHttp),
       ),
   });

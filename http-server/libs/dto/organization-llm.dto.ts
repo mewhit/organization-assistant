@@ -10,6 +10,15 @@ export const OrganizationLlmDtoSchema = Schema.Struct({
   createdAt: Schema.DateFromString,
 });
 
+export const OrganizationLlmListItemDtoSchema = Schema.Struct({
+  id: Schema.UUID,
+  organizationId: Schema.UUID,
+  provider: Schema.String,
+  isActive: Schema.Boolean,
+  updatedAt: Schema.DateFromString,
+  createdAt: Schema.DateFromString,
+});
+
 export const CreateOrganizationLlmDtoSchema = Schema.Struct({
   organizationId: Schema.UUID,
   provider: Schema.String,
@@ -22,3 +31,4 @@ export const UpdateOrganizationLlmDtoSchema = Schema.partial(CreateOrganizationL
 export type CreateOrganizationLlmDto = Schema.Schema.Type<typeof CreateOrganizationLlmDtoSchema>;
 export type UpdateOrganizationLlmDto = Schema.Schema.Type<typeof UpdateOrganizationLlmDtoSchema>;
 export type OrganizationLlmDto = Schema.Schema.Type<typeof OrganizationLlmDtoSchema>;
+export type OrganizationLlmListItemDto = Schema.Schema.Type<typeof OrganizationLlmListItemDtoSchema>;

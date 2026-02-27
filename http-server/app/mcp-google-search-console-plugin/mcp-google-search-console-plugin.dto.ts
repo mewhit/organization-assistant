@@ -54,6 +54,7 @@ export const GscToolNameSchema = Schema.Literal(
 export const GscExecuteToolDtoSchema = Schema.Struct({
   tool: GscToolNameSchema,
   input: Schema.optional(Schema.Unknown),
+  credentials: Schema.optional(Schema.Unknown),
 });
 
 export type FetchProjectsInput = Schema.Schema.Type<typeof FetchProjectsInputSchema>;

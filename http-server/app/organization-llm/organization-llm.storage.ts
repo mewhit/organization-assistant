@@ -6,7 +6,11 @@ import { Option, type Effect } from "effect";
 
 import { db } from "db/client";
 import { dbHandler, type DbError } from "@libs/dbHandler";
-import { organizationLlmsTable, type OrganizationLlmRecord, type NewOrganizationLlmRecord } from "@db/schemas/organization-llms.schema";
+import {
+  organizationLlmsTable,
+  type OrganizationLlmRecord,
+  type NewOrganizationLlmRecord,
+} from "@db/schemas/organization-llms.schema";
 
 export class OrganizationLlmStorage {
   static insert(payload: NewOrganizationLlmRecord): Effect.Effect<Option.Option<OrganizationLlmRecord>, DbError> {
@@ -28,7 +32,10 @@ export class OrganizationLlmStorage {
     });
   }
 
-  static update(id: string, payload: Partial<NewOrganizationLlmRecord>): Effect.Effect<Option.Option<OrganizationLlmRecord>, DbError> {
+  static update(
+    id: string,
+    payload: Partial<NewOrganizationLlmRecord>,
+  ): Effect.Effect<Option.Option<OrganizationLlmRecord>, DbError> {
     return dbHandler(async () => {
       await db.update(organizationLlmsTable).set(payload).where(eq(organizationLlmsTable.id, id));
       const rows = await db.select().from(organizationLlmsTable).where(eq(organizationLlmsTable.id, id)).limit(1);
@@ -42,6 +49,12 @@ export class OrganizationLlmStorage {
       const rows = await db.select().from(organizationLlmsTable).where(eq(organizationLlmsTable.id, id)).limit(1);
 
       return Option.fromNullable(rows.at(0));
+    });
+  }
+
+  static findMany(): Effect.Effect<OrganizationLlmRecord[], DbError> {
+    return dbHandler(async () => {
+      return db.select().from(organizationLlmsTable);
     });
   }
 }

@@ -4,7 +4,13 @@ import { Effect, Option } from "effect";
 import { type DbError, UnknownDbError } from "@libs/dbHandler";
 
 import { OrganizationLlmStorage } from "./organization-llm.storage";
-import { type OrganizationLlm, type CreatableOrganizationLlm, type UpdatableOrganizationLlm } from "./organization-llm.entity";
+import {
+  type OrganizationLlm,
+  type CreatableOrganizationLlm,
+  type UpdatableOrganizationLlm,
+} from "./organization-llm.entity";
+
+type OrganizationLlmListItem = Omit<OrganizationLlm, "apiKey">;
 
 export class OrganizationLlmNotFound {
   readonly _tag = "OrganizationLlmNotFound";
@@ -70,6 +76,12 @@ export class OrganizationLlmService {
     return { ...organizationLlm, apiKey: this.decryptApiKey(organizationLlm.apiKey) };
   }
 
+  private static mapListItem(organizationLlm: OrganizationLlm): OrganizationLlmListItem {
+    const { apiKey: _apiKey, ...rest } = organizationLlm;
+
+    return rest;
+  }
+
   static create(payload: CreatableOrganizationLlm): Effect.Effect<OrganizationLlm, OrganizationLlmServiceError> {
     return this.encryptApiKey(payload.apiKey).pipe(
       Effect.flatMap((apiKey) => OrganizationLlmStorage.insert({ ...payload, apiKey })),
@@ -93,11 +105,20 @@ export class OrganizationLlmService {
     );
   }
 
+  static findMany(): Effect.Effect<OrganizationLlmListItem[], OrganizationLlmServiceError> {
+    return OrganizationLlmStorage.findMany().pipe(
+      Effect.map((organizationLlms) => organizationLlms.map((organizationLlm) => this.mapListItem(organizationLlm))),
+    );
+  }
+
   static find(id: string) {
     return this.findOne(id);
   }
 
-  static update(id: string, payload: UpdatableOrganizationLlm): Effect.Effect<OrganizationLlm, OrganizationLlmServiceError> {
+  static update(
+    id: string,
+    payload: UpdatableOrganizationLlm,
+  ): Effect.Effect<OrganizationLlm, OrganizationLlmServiceError> {
     const updatePayloadEffect: Effect.Effect<UpdatableOrganizationLlm, UnknownDbError> = payload.apiKey
       ? this.encryptApiKey(payload.apiKey).pipe(Effect.map((apiKey) => ({ ...payload, apiKey })))
       : Effect.succeed(payload);

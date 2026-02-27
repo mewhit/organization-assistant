@@ -3,11 +3,19 @@ import { Effect, Schema } from "effect";
 import { mapErrorToHttp } from "@libs/dbHandler";
 
 import { OrganizationMcpPluginService } from "./organization-mcp-plugin.service";
-import { CreateOrganizationMcpPluginDtoSchema, UpdateOrganizationMcpPluginDtoSchema, OrganizationMcpPluginDtoSchema } from "./organization-mcp-plugin.dto";
+import {
+  CreateOrganizationMcpPluginDtoSchema,
+  UpdateOrganizationMcpPluginDtoSchema,
+  OrganizationMcpPluginDtoSchema,
+} from "./organization-mcp-plugin.dto";
 import { defineRoute } from "@libs/defineRoute";
 
 const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
+});
+
+const OrganizationIdParamsSchema = Schema.Struct({
+  organizationId: Schema.UUID,
 });
 
 export default async function organizationMcpPluginRoutes(app: FastifyInstance) {
@@ -28,12 +36,24 @@ export default async function organizationMcpPluginRoutes(app: FastifyInstance) 
   });
 
   defineRoute(app, {
+    method: "GET",
+    url: "/by-organization/:organizationId/active",
+    params: OrganizationIdParamsSchema,
+    output: OrganizationMcpPluginDtoSchema,
+    handler: (_, params) =>
+      OrganizationMcpPluginService.findActiveByOrganizationId(params.organizationId).pipe(
+        Effect.mapError(mapErrorToHttp),
+      ),
+  });
+
+  defineRoute(app, {
     method: "PATCH",
     url: "/:id",
     input: UpdateOrganizationMcpPluginDtoSchema,
     params: IdParamsSchema,
     output: OrganizationMcpPluginDtoSchema,
-    handler: (input, params) => OrganizationMcpPluginService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
+    handler: (input, params) =>
+      OrganizationMcpPluginService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -42,7 +62,8 @@ export default async function organizationMcpPluginRoutes(app: FastifyInstance) 
     input: UpdateOrganizationMcpPluginDtoSchema,
     params: IdParamsSchema,
     output: OrganizationMcpPluginDtoSchema,
-    handler: (input, params) => OrganizationMcpPluginService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
+    handler: (input, params) =>
+      OrganizationMcpPluginService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {

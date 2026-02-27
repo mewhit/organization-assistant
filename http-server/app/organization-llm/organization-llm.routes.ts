@@ -3,7 +3,12 @@ import { Effect, Schema } from "effect";
 import { mapErrorToHttp } from "@libs/dbHandler";
 
 import { OrganizationLlmService } from "./organization-llm.service";
-import { CreateOrganizationLlmDtoSchema, UpdateOrganizationLlmDtoSchema, OrganizationLlmDtoSchema } from "./organization-llm.dto";
+import {
+  CreateOrganizationLlmDtoSchema,
+  UpdateOrganizationLlmDtoSchema,
+  OrganizationLlmDtoSchema,
+  OrganizationLlmListItemDtoSchema,
+} from "./organization-llm.dto";
 import { defineRoute } from "@libs/defineRoute";
 
 const IdParamsSchema = Schema.Struct({
@@ -11,6 +16,13 @@ const IdParamsSchema = Schema.Struct({
 });
 
 export default async function organizationLlmRoutes(app: FastifyInstance) {
+  defineRoute(app, {
+    method: "GET",
+    url: "/",
+    output: Schema.Array(OrganizationLlmListItemDtoSchema),
+    handler: () => OrganizationLlmService.findMany().pipe(Effect.mapError(mapErrorToHttp)),
+  });
+
   defineRoute(app, {
     method: "POST",
     url: "/",

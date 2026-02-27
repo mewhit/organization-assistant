@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import apiReference from "@scalar/fastify-api-reference";
 
@@ -38,6 +39,10 @@ const start = async () => {
           version: "1.0.0",
         },
       },
+    });
+
+    await app.register(cors, {
+      origin: true,
     });
 
     await app.register(apiReference, {

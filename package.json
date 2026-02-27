@@ -1,4 +1,13 @@
 {
-  "devDependencies": {},
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n webapp,websocket,http \"yarn dev:webapp\" \"yarn dev:websocket\" \"yarn dev:http\"",
+    "dev:webapp": "yarn --cwd webapp dev",
+    "dev:websocket": "yarn --cwd websocket-server dev",
+    "dev:http": "yarn --cwd http-server dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
   "dependencies": {}
 }
