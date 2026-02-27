@@ -8,6 +8,7 @@ export const mcpPluginsTable = mysqlTable("mcp_plugins", {
   name: varchar("name", { length: 255 }).notNull(),
   description: varchar("description", { length: 1024 }),
   configNeeded: json("config_needed").notNull(),
+  tools: json("tools").notNull().default("[]"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

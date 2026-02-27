@@ -1,17 +1,7 @@
-import { usersTable } from "./schemas/users.schema";
-import { organizationsTable } from "./schemas/organizations.schema";
-import { organizationUsersTable } from "./schemas/organization-users.schema";
-import { organizationContextsTable } from "./schemas/organization-contexts.schema";
-import { organizationLlmsTable } from "./schemas/organization-llms.schema";
-import { mcpPluginsTable } from "./schemas/mcp-plugins.schema";
-
-export { usersTable, organizationsTable, organizationUsersTable, organizationContextsTable, organizationLlmsTable, mcpPluginsTable };
-
-export const schema = {
-  usersTable,
-  organizationsTable,
-  organizationUsersTable,
-  organizationContextsTable,
-  organizationLlmsTable,
-  mcpPluginsTable,
-};
+export { usersTable } from "./schemas/users.schema";
+export { organizationsTable } from "./schemas/organizations.schema";
+export { organizationUsersTable } from "./schemas/organization-users.schema";
+export { organizationContextsTable } from "./schemas/organization-contexts.schema";
+export { organizationLlmsTable } from "./schemas/organization-llms.schema";
+export { mcpPluginsTable } from "./schemas/mcp-plugins.schema";
+export { organizationMcpPluginsTable } from "./schemas/organization-mcp-plugins.schema";

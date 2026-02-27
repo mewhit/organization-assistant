@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { config } from "dotenv";
 
-import { schema } from "./schema.js";
+import * as schema from "./schema.js";
 
 config({ path: ".env" });
 

@@ -5,6 +5,7 @@ export const McpPluginDtoSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.NullOr(Schema.String),
   configNeeded: Schema.Unknown,
+  tools: Schema.Unknown,
   updatedAt: Schema.DateFromString,
   createdAt: Schema.DateFromString,
 });
@@ -13,6 +14,7 @@ export const CreateMcpPluginDtoSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.NullOr(Schema.String)),
   configNeeded: Schema.Unknown,
+  tools: Schema.optional(Schema.Unknown),
 });
 
 export const UpdateMcpPluginDtoSchema = Schema.partial(CreateMcpPluginDtoSchema);

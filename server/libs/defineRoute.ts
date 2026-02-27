@@ -68,10 +68,42 @@ function inlineLocalDefs<T>(schema: T): T {
   return walk(clone) as T;
 }
 
-export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
-  const bodySchema = config.input ? inlineLocalDefs(JSONSchema.make(config.input, { target: "openApi3.1" })) : undefined;
+function stripSchemaIds<T>(schema: T): T {
+  const clone = structuredClone(schema);
 
-  const responseSchema = inlineLocalDefs(JSONSchema.make(config.output, { target: "openApi3.1" }));
+  const walk = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map((item) => walk(item));
+    }
+
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+
+    const node = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+
+    for (const [key, val] of Object.entries(node)) {
+      if (key === "$id") {
+        continue;
+      }
+      out[key] = walk(val);
+    }
+
+    return out;
+  };
+
+  return walk(clone) as T;
+}
+
+function normalizeSchema<T>(schema: T): T {
+  return stripSchemaIds(inlineLocalDefs(schema));
+}
+
+export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
+  const bodySchema = config.input ? normalizeSchema(JSONSchema.make(config.input, { target: "openApi3.1" })) : undefined;
+
+  const responseSchema = normalizeSchema(JSONSchema.make(config.output, { target: "openApi3.1" }));
 
   app.route({
     method: config.method,
@@ -82,10 +114,10 @@ export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P
       response: {
         200: responseSchema,
         201: responseSchema,
-        400: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
-        404: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
-        409: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
-        500: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        400: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        404: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        409: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        500: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
       },
       tags: config.tags,
       description: config.description,

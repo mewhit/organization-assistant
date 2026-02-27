@@ -8,6 +8,20 @@
       "when": 1772210221260,
       "tag": "0000_strong_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772213934101,
+      "tag": "0001_tricky_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772215135691,
+      "tag": "0002_ambiguous_siren",
+      "breakpoints": true
     }
   ]
 }

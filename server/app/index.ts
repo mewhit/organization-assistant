@@ -11,6 +11,7 @@ import organizationUserOrchestratorRoutes from "./organization-user-orchestrator
 import organizationContextOrchestratorRoutes from "./organization-context-orchestrator/organization-context-orchestrator.routes";
 import organizationLlmRoutes from "./organization-llm/organization-llm.routes"
 import mcpPluginRoutes from "./mcp-plugin/mcp-plugin.routes"
+import organizationMcpPluginRoutes from "./organization-mcp-plugin/organization-mcp-plugin.routes"
 
 const app = Fastify({ logger: true });
 
@@ -53,6 +54,7 @@ const start = async () => {
     await app.register(organizationContextOrchestratorRoutes, { prefix: "/organization-context-orchestrator" });
     await app.register(organizationLlmRoutes, { prefix: "/organization-llm" });
     await app.register(mcpPluginRoutes, { prefix: "/mcp-plugin" });
+    await app.register(organizationMcpPluginRoutes, { prefix: "/organization-mcp-plugin" });
 
     await app.listen({ port, host: "0.0.0.0" });
 

@@ -1,0 +1,1 @@
+ALTER TABLE `mcp_plugins` ADD `tools`  json DEFAULT ('[]') NOT NULL  AFTER `description`;
