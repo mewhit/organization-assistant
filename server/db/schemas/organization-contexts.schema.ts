@@ -3,7 +3,7 @@ import { mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 import { usersTable } from "./users.schema";
 
-export const organizationContextsTable = mysqlTable("organization-contexts", {
+export const organizationContextsTable = mysqlTable("organization_contexts", {
   id: varchar("id", { length: 36 })
     .default(sql`(uuid())`)
     .primaryKey(),

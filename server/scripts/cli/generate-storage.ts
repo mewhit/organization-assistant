@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { pluralize, toCamelCase, toPascalCase } from "./name-case";
+import { pluralize, toCamelCase, toPascalCase, toSnakeCase } from "./name-case";
 
 const STORAGE_ACTIONS = ["insert", "del", "update", "findOne", "all"] as const;
 type StorageAction = (typeof STORAGE_ACTIONS)[number];
@@ -34,12 +34,11 @@ function parseStorageActions(actions: string[]) {
 function buildStorageTemplate(
   pascalCaseName: string,
   tableVariableName: string,
-  tableName: string,
+  schemaName: string,
   actions: Exclude<StorageAction, "all">[],
 ) {
   const needsRandomUUID = actions.includes("insert");
-  const needsEq =
-    actions.includes("insert") || actions.includes("del") || actions.includes("update") || actions.includes("findOne");
+  const needsEq = actions.includes("insert") || actions.includes("del") || actions.includes("update") || actions.includes("findOne");
   const methodBlocks: string[] = [];
   const selectTypeName = `${pascalCaseName}Record`;
   const insertTypeName = `New${pascalCaseName}Record`;
@@ -104,7 +103,7 @@ function buildStorageTemplate(
       "",
       'import { db } from "db/client";',
       'import { dbHandler, type DbError } from "@libs/dbHandler";',
-      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "@db/schemas/${tableName}.schema";`,
+      `import { ${tableVariableName}, type ${selectTypeName}, type ${insertTypeName} } from "@db/schemas/${schemaName}.schema";`,
       "",
     );
   }
@@ -153,17 +152,14 @@ async function registerSchemaTable(tableName: string, tableVariableName: string)
   const escapedVariableName = tableVariableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tablePropertyMatcher = new RegExp(`(^|\\n)\\s*${escapedVariableName}\\s*,?\\s*(?=\\n|$)`);
 
-  updatedSchemaContent = updatedSchemaContent.replace(
-    schemaObjectMatcher,
-    (fullMatch, prefix: string, body: string, suffix: string) => {
-      if (tablePropertyMatcher.test(body)) {
-        return fullMatch;
-      }
+  updatedSchemaContent = updatedSchemaContent.replace(schemaObjectMatcher, (fullMatch, prefix: string, body: string, suffix: string) => {
+    if (tablePropertyMatcher.test(body)) {
+      return fullMatch;
+    }
 
-      const normalizedBody = body.trim().length === 0 ? "\n" : `${body.trimEnd()}\n`;
-      return `${prefix}${normalizedBody}${tablePropertyLine}\n${suffix}`;
-    },
-  );
+    const normalizedBody = body.trim().length === 0 ? "\n" : `${body.trimEnd()}\n`;
+    return `${prefix}${normalizedBody}${tablePropertyLine}\n${suffix}`;
+  });
 
   await fs.writeFile(schemaRegistryPath, updatedSchemaContent);
 }
@@ -172,23 +168,27 @@ export async function generateStorage(name: string, actionOptions: string[] = []
   const modulePath = path.join("app", name);
   const storageFilePath = path.join(modulePath, `${name}.storage.ts`);
   const pascalCaseName = toPascalCase(name);
-  const tableName = pluralize(name);
-  const tableVariableName = `${toCamelCase(tableName)}Table`;
-  const dbSchemaPath = path.join("db", "schemas", `${tableName}.schema.ts`);
+  const schemaName = pluralize(name);
+  const sqlTableName = toSnakeCase(schemaName);
+  const tableVariableName = `${toCamelCase(schemaName)}Table`;
+  const dbSchemaPath = path.join("db", "schemas", `${schemaName}.schema.ts`);
   const selectedActions = parseStorageActions(actionOptions);
 
   await fs.mkdir(modulePath, { recursive: true });
   await fs.mkdir(path.dirname(dbSchemaPath), { recursive: true });
 
-  const storageTemplate = buildStorageTemplate(pascalCaseName, tableVariableName, tableName, selectedActions).trim();
+  const storageTemplate = buildStorageTemplate(pascalCaseName, tableVariableName, schemaName, selectedActions).trim();
 
   const dbSchemaTemplate = `
-import { pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
 
-export const ${tableVariableName} = pgTable("${tableName}", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  updatedAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+export const ${tableVariableName} = mysqlTable("${sqlTableName}", {
+  id: varchar("id", { length: 36 })
+    .default(sql\`(uuid())\`)
+    .primaryKey(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export type ${pascalCaseName}Record = typeof ${tableVariableName}.$inferSelect;
@@ -198,7 +198,7 @@ export type New${pascalCaseName}Record = typeof ${tableVariableName}.$inferInser
 
   await fs.writeFile(storageFilePath, storageTemplate);
   await fs.writeFile(dbSchemaPath, dbSchemaTemplate);
-  await registerSchemaTable(tableName, tableVariableName);
+  await registerSchemaTable(schemaName, tableVariableName);
 
   console.log(`✅ Created storage: ${name}`);
   if (selectedActions.length === 0) {
@@ -206,6 +206,6 @@ export type New${pascalCaseName}Record = typeof ${tableVariableName}.$inferInser
   } else {
     console.log(`✅ Generated storage actions: ${selectedActions.join(", ")}`);
   }
-  console.log(`✅ Created db schema: db/schemas/${tableName}/schema.ts`);
+  console.log(`✅ Created db schema: db/schemas/${schemaName}.schema.ts`);
   console.log("✅ Registered schema in db/schema.ts");
 }

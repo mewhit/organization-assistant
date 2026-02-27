@@ -6,7 +6,7 @@ import { organizationsTable } from "./organizations.schema";
 import { usersTable } from "./users.schema";
 
 export const organizationUsersTable = mysqlTable(
-  "organization-users",
+  "organization_users",
   {
     id: varchar("id", { length: 36 })
       .default(sql`(uuid())`)

@@ -18,6 +18,14 @@ export function toPascalCase(value: string) {
   return camelCaseValue.charAt(0).toUpperCase() + camelCaseValue.slice(1);
 }
 
+export function toSnakeCase(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+}
+
 export function pluralize(name: string) {
   if (name.endsWith("ch") || name.endsWith("sh") || /[sxz]$/.test(name)) {
     return `${name}es`;

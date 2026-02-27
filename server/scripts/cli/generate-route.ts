@@ -80,9 +80,9 @@ function buildCrudServiceRouteTemplate(name: string) {
   return `
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
-import { UnknownDbError } from "@libs/dbHandler";
+import { mapErrorToHttp } from "@libs/dbHandler";
 
-import { ${className}Service, ${className}NotFound, ${className}ServiceError } from "./${name}.service";
+import { ${className}Service } from "./${name}.service";
 import { Create${className}DtoSchema, Update${className}DtoSchema, ${className}DtoSchema } from "./${name}.dto";
 import { defineRoute } from "@libs/defineRoute";
 
@@ -90,25 +90,13 @@ const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
 });
 
-function map${className}ServiceError(error: ${className}ServiceError): { statusCode: 404 | 500; message: string } {
-  if (error instanceof ${className}NotFound) {
-    return { statusCode: 404, message: "${className} not found" };
-  }
-
-  if (error instanceof UnknownDbError) {
-    return { statusCode: 500, message: "Database error" };
-  }
-
-  return { statusCode: 500, message: "Internal server error" };
-}
-
 export default async function ${routeHandlerName}(app: FastifyInstance) {
   defineRoute(app, {
     method: "POST",
     url: "/",
     input: Create${className}DtoSchema,
     output: ${className}DtoSchema,
-    handler: (input) => ${className}Service.create(input).pipe(Effect.mapError(map${className}ServiceError)),
+    handler: (input) => ${className}Service.create(input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -116,7 +104,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: ${className}DtoSchema,
-    handler: (_, params) => ${className}Service.findOne(params.id).pipe(Effect.mapError(map${className}ServiceError)),
+    handler: (_, params) => ${className}Service.findOne(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -125,7 +113,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     input: Update${className}DtoSchema,
     params: IdParamsSchema,
     output: ${className}DtoSchema,
-    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(map${className}ServiceError)),
+    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -134,7 +122,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     input: Update${className}DtoSchema,
     params: IdParamsSchema,
     output: ${className}DtoSchema,
-    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(map${className}ServiceError)),
+    handler: (input, params) => ${className}Service.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -142,7 +130,7 @@ export default async function ${routeHandlerName}(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: ${className}DtoSchema,
-    handler: (_, params) => ${className}Service.remove(params.id).pipe(Effect.mapError(map${className}ServiceError)),
+    handler: (_, params) => ${className}Service.remove(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 }
 `.trim();

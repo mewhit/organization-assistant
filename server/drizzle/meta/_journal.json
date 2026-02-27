@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1772139453977,
-      "tag": "0000_foamy_gauntlet",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1772203753748,
-      "tag": "0001_freezing_starbolt",
+      "when": 1772210221260,
+      "tag": "0000_strong_vulcan",
       "breakpoints": true
     }
   ]
