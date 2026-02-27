@@ -1,7 +1,7 @@
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { type DbError, UnknownDbError } from "@libs/dbHandler";
-import { OrganizationStorage } from "../organization/organization.storage";
-import { OrganizationContextStorage } from "../organization-context/organization-context.storage";
+import { ApiClientHttpError } from "@libs/apiClient";
+import { internalApiClient } from "@libs/internalApiClient";
 import {
   type CreatableOrganizationContextOrchestrator,
   type OrganizationContextOrchestrator,
@@ -22,14 +22,19 @@ export class OrganizationContextOrchestratorService {
     payload: CreatableOrganizationContextOrchestrator,
   ): Effect.Effect<OrganizationContextOrchestrator, OrganizationContextOrchestratorServiceError> {
     return Effect.gen(function* () {
-      yield* OrganizationStorage.findOne(payload.organizationId).pipe(Effect.filterOrFail(Option.isSome, () => new OrganizationNotFound()));
+      yield* internalApiClient.organization.findOne(payload.organizationId).pipe(
+        Effect.mapError((error) => {
+          if (error instanceof ApiClientHttpError && error.status === 404) {
+            return new OrganizationNotFound();
+          }
 
-      const result = yield* OrganizationContextStorage.insert(payload);
+          return new UnknownDbError(error);
+        }),
+      );
 
-      return yield* Option.match(result, {
-        onNone: () => Effect.fail(new UnknownDbError("OrganizationContext not found")),
-        onSome: Effect.succeed,
-      });
+      return yield* internalApiClient.organizationContext
+        .create(payload)
+        .pipe(Effect.mapError(() => new OrganizationContextOrchestratorError()));
     });
   }
 }

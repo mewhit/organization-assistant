@@ -93,6 +93,12 @@ export type ${className}Dto = Schema.Schema.Type<typeof ${className}DtoSchema>;
 `.trim();
 }
 
+function buildAppDtoReexportTemplate(name: string) {
+  return `
+export * from "@libs/dto/${name}.dto";
+`.trim();
+}
+
 function buildEntityTemplate(className: string) {
   return `
 export type ${className} = {};
@@ -114,20 +120,41 @@ export async function generateCrud(name: string) {
   const serviceName = `${className}Service`;
   const storageName = `${className}Storage`;
   const modulePath = path.join("app", name);
+  const libsDtoPath = path.join("libs", "dto");
   const serviceFilePath = path.join(modulePath, `${name}.service.ts`);
-  const dtoFilePath = path.join(modulePath, `${name}.dto.ts`);
+  const appDtoFilePath = path.join(modulePath, `${name}.dto.ts`);
+  const libsDtoFilePath = path.join(libsDtoPath, `${name}.dto.ts`);
   const entityFilePath = path.join(modulePath, `${name}.entity.ts`);
+  const libsDtoIndexPath = path.join(libsDtoPath, "index.ts");
 
   const serviceTemplate = buildServiceTemplate(name, className, serviceName, storageName);
   const dtoTemplate = buildDtoTemplate(className);
+  const appDtoReexportTemplate = buildAppDtoReexportTemplate(name);
   const entityTemplate = buildEntityTemplate(className);
 
+  await fs.mkdir(libsDtoPath, { recursive: true });
+
   await fs.writeFile(serviceFilePath, serviceTemplate);
-  await fs.writeFile(dtoFilePath, dtoTemplate);
+  await fs.writeFile(libsDtoFilePath, dtoTemplate);
+  await fs.writeFile(appDtoFilePath, appDtoReexportTemplate);
   await fs.writeFile(entityFilePath, entityTemplate);
+
+  let dtoIndexContent = "";
+  try {
+    dtoIndexContent = await fs.readFile(libsDtoIndexPath, "utf-8");
+  } catch {
+    dtoIndexContent = "";
+  }
+
+  const exportLine = `export * from "./${name}.dto";`;
+  if (!dtoIndexContent.includes(exportLine)) {
+    const normalized = dtoIndexContent.trim();
+    const updatedIndex = normalized ? `${normalized}\n${exportLine}\n` : `${exportLine}\n`;
+    await fs.writeFile(libsDtoIndexPath, updatedIndex);
+  }
 
   console.log(`✅ Created CRUD module: ${name}`);
   console.log(
-    `✅ Generated ${name}.routes.ts, ${name}.service.ts, ${name}.dto.ts, ${name}.entity.ts, and ${name}.storage.ts`,
+    `✅ Generated ${name}.routes.ts, ${name}.service.ts, app/${name}/${name}.dto.ts (re-export), libs/dto/${name}.dto.ts, ${name}.entity.ts, and ${name}.storage.ts`,
   );
 }
