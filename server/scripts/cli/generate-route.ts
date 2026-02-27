@@ -40,9 +40,7 @@ function parseRouteDefinitions(routeOptions: string[]) {
       .filter(Boolean);
 
     if (tokens.length < 2) {
-      throw new Error(
-        `Invalid route definition: \"${rawDefinition}\". Expected format: method|path or method|method|path.`,
-      );
+      throw new Error(`Invalid route definition: \"${rawDefinition}\". Expected format: method|path or method|method|path.`);
     }
 
     const rawPath = tokens.at(-1)!;
@@ -50,9 +48,7 @@ function parseRouteDefinitions(routeOptions: string[]) {
 
     for (const method of methods) {
       if (!isHttpMethod(method)) {
-        throw new Error(
-          `Invalid HTTP method: \"${method}\" in \"${rawDefinition}\". Supported methods: ${HTTP_METHODS.join(", ")}.`,
-        );
+        throw new Error(`Invalid HTTP method: \"${method}\" in \"${rawDefinition}\". Supported methods: ${HTTP_METHODS.join(", ")}.`);
       }
 
       definitions.push({ method, path: normalizeRoutePath(rawPath) });
