@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
-import { UnknownDbError } from "@libs/dbHandler";
+import { UnknownDbError, NotFoundError } from "@libs/dbHandler";
 
 import {
   OrganizationUserService,
@@ -24,6 +24,10 @@ function mapOrganizationUserServiceError(error: OrganizationUserServiceError): {
 } {
   if (error instanceof OrganizationUserNotFound) {
     return { statusCode: 404, message: "OrganizationUser not found" };
+  }
+
+  if (error instanceof NotFoundError) {
+    return { statusCode: 404, message: error.message };
   }
 
   if (error instanceof UnknownDbError) {

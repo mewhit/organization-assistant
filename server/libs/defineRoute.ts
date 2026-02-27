@@ -18,10 +18,64 @@ type RouteConfig<P, I, O> = {
   description?: string;
 };
 
-export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
-  const bodySchema = config.input ? JSONSchema.make(config.input, { target: "openApi3.1" }) : undefined;
+const LOCAL_DEFS_PREFIX = "#/$defs/";
 
-  const responseSchema = JSONSchema.make(config.output, { target: "openApi3.1" });
+function inlineLocalDefs<T>(schema: T): T {
+  const clone = structuredClone(schema);
+
+  const walk = (value: unknown, inheritedDefs?: Record<string, unknown>): unknown => {
+    if (Array.isArray(value)) {
+      return value.map((item) => walk(item, inheritedDefs));
+    }
+
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+
+    const node = value as Record<string, unknown>;
+    const nodeDefs =
+      node.$defs && typeof node.$defs === "object" && !Array.isArray(node.$defs)
+        ? (node.$defs as Record<string, unknown>)
+        : inheritedDefs;
+
+    if (typeof node.$ref === "string" && node.$ref.startsWith(LOCAL_DEFS_PREFIX) && nodeDefs) {
+      const defName = node.$ref.slice(LOCAL_DEFS_PREFIX.length);
+      const target = nodeDefs[defName];
+
+      if (target && typeof target === "object") {
+        const merged = {
+          ...(structuredClone(target) as Record<string, unknown>),
+          ...node,
+        };
+
+        delete merged.$ref;
+        delete merged.$defs;
+
+        return walk(merged, nodeDefs);
+      }
+    }
+
+    const out: Record<string, unknown> = {};
+
+    for (const [key, val] of Object.entries(node)) {
+      if (key === "$defs") {
+        continue;
+      }
+      out[key] = walk(val, nodeDefs);
+    }
+
+    return out;
+  };
+
+  return walk(clone) as T;
+}
+
+export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
+  const bodySchema = config.input
+    ? inlineLocalDefs(JSONSchema.make(config.input, { target: "openApi3.1" }))
+    : undefined;
+
+  const responseSchema = inlineLocalDefs(JSONSchema.make(config.output, { target: "openApi3.1" }));
 
   app.route({
     method: config.method,
@@ -31,10 +85,10 @@ export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P
       response: {
         200: responseSchema,
         201: responseSchema,
-        400: JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" }),
-        404: JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" }),
-        409: JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" }),
-        500: JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" }),
+        400: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        404: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        409: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        500: inlineLocalDefs(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
       },
       tags: config.tags,
       description: config.description,

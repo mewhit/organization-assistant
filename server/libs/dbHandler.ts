@@ -5,10 +5,16 @@ export class UnknownDbError {
   constructor(readonly cause: unknown) {}
 }
 
-export type DbError = UnknownDbError;
+export class NotFoundError {
+  readonly _tag = "NotFoundError";
+  constructor(readonly message: string) {}
+}
+
+export type DbError = UnknownDbError | NotFoundError;
 
 export function mapDbError(error: unknown): DbError {
   console.error("Database error:", error);
+
   return new UnknownDbError(error);
 }
 

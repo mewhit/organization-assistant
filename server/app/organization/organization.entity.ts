@@ -2,6 +2,6 @@ import { type NewOrganizationRecord, type OrganizationRecord } from "../../db/sc
 
 export type Organization = OrganizationRecord;
 
-export type CreatableOrganization = NewOrganizationRecord;
+export type CreatableOrganization = Omit<NewOrganizationRecord, "slug">;
 
 export type UpdatableOrganization = Partial<NewOrganizationRecord>;

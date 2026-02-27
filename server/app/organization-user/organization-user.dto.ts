@@ -9,11 +9,8 @@ export const OrganizationUserDtoSchema = Schema.Struct({
 });
 
 export const CreateOrganizationUserDtoSchema = Schema.Struct({
-  id: Schema.optional(Schema.UUID),
   userId: Schema.UUID,
   organizationId: Schema.UUID,
-  updatedAt: Schema.optional(Schema.DateFromString),
-  createdAt: Schema.optional(Schema.DateFromString),
 });
 
 export const UpdateOrganizationUserDtoSchema = Schema.partial(CreateOrganizationUserDtoSchema);
