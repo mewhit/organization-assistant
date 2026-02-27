@@ -2,7 +2,11 @@ import { Effect, Option } from "effect";
 import { type DbError, UnknownDbError } from "@libs/dbHandler";
 
 import { OrganizationMcpPluginStorage } from "./organization-mcp-plugin.storage";
-import { type OrganizationMcpPlugin, type CreatableOrganizationMcpPlugin, type UpdatableOrganizationMcpPlugin } from "./organization-mcp-plugin.entity";
+import {
+  type OrganizationMcpPlugin,
+  type CreatableOrganizationMcpPlugin,
+  type UpdatableOrganizationMcpPlugin,
+} from "./organization-mcp-plugin.entity";
 
 export class OrganizationMcpPluginNotFound {
   readonly _tag = "OrganizationMcpPluginNotFound";
@@ -41,7 +45,21 @@ export class OrganizationMcpPluginService {
     return this.findOne(id);
   }
 
-  static update(id: string, payload: UpdatableOrganizationMcpPlugin): Effect.Effect<OrganizationMcpPlugin, OrganizationMcpPluginServiceError> {
+  static findActiveByOrganizationId(organizationId: string): Effect.Effect<OrganizationMcpPlugin, OrganizationMcpPluginServiceError> {
+    return OrganizationMcpPluginStorage.findActiveByOrganizationId(organizationId).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(new OrganizationMcpPluginNotFound()),
+          onSome: (organizationMcpPlugin) => Effect.succeed(organizationMcpPlugin),
+        }),
+      ),
+    );
+  }
+
+  static update(
+    id: string,
+    payload: UpdatableOrganizationMcpPlugin,
+  ): Effect.Effect<OrganizationMcpPlugin, OrganizationMcpPluginServiceError> {
     return OrganizationMcpPluginStorage.update(id, payload).pipe(
       Effect.flatMap(
         Option.match({

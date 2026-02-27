@@ -1,4 +1,4 @@
-export * from "./command.dto";
+export * from "./command-orchestrator.dto";
 export * from "./mcp-plugin.dto";
 export * from "./organization-context.dto";
 export * from "./organization.dto";

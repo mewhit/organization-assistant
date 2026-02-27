@@ -1,5 +1,6 @@
 import type {
-  CommandDto,
+  CommandOrchestratorDto,
+  CommandOrchestratorResultDto,
   CreateMcpPluginDto,
   CreateOrganizationContextDto,
   CreateOrganizationContextOrchestratorDto,
@@ -172,7 +173,8 @@ export class ApiClient {
   };
 
   readonly command = {
-    execute: (input: CommandDto) => this.request<Record<string, never>, CommandDto>("POST", "/command", input),
+    execute: (input: CommandOrchestratorDto) =>
+      this.request<CommandOrchestratorResultDto, CommandOrchestratorDto>("POST", "/command-orchestrator", input),
   };
 }
 

@@ -9,10 +9,12 @@ import organizationUserRoutes from "./organization-user/organization-user.routes
 import organizationContextRoutes from "./organization-context/organization-context.routes";
 import organizationUserOrchestratorRoutes from "./organization-user-orchestrator/organization-user-orchestrator.routes";
 import organizationContextOrchestratorRoutes from "./organization-context-orchestrator/organization-context-orchestrator.routes";
-import organizationLlmRoutes from "./organization-llm/organization-llm.routes"
-import mcpPluginRoutes from "./mcp-plugin/mcp-plugin.routes"
-import organizationMcpPluginRoutes from "./organization-mcp-plugin/organization-mcp-plugin.routes"
-import commandRoutes from "./command/command.routes"
+import organizationLlmRoutes from "./organization-llm/organization-llm.routes";
+import mcpPluginRoutes from "./mcp-plugin/mcp-plugin.routes";
+import organizationMcpPluginRoutes from "./organization-mcp-plugin/organization-mcp-plugin.routes";
+import commandOrchestratorRoutes from "./command-orchestrator/command-orchestrator.routes";
+import openAiExecutorRoutes from "./open-ai-executor/open-ai-executor.routes";
+import mcpGoogleSearchConsolePluginRoutes from "./mcp-google-search-console-plugin/mcp-google-search-console-plugin.routes";
 
 const app = Fastify({ logger: true });
 
@@ -56,7 +58,9 @@ const start = async () => {
     await app.register(organizationLlmRoutes, { prefix: "/organization-llm" });
     await app.register(mcpPluginRoutes, { prefix: "/mcp-plugin" });
     await app.register(organizationMcpPluginRoutes, { prefix: "/organization-mcp-plugin" });
-    await app.register(commandRoutes, { prefix: "/command" });
+    await app.register(commandOrchestratorRoutes, { prefix: "/command-orchestrator" });
+    await app.register(openAiExecutorRoutes, { prefix: "/open-ai-executor" });
+    await app.register(mcpGoogleSearchConsolePluginRoutes, { prefix: "/mcp-google-search-console-plugin" });
 
     await app.listen({ port, host: "0.0.0.0" });
 
