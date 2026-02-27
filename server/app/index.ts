@@ -7,6 +7,7 @@ import userRoutes from "./user/user.routes";
 import organizationRoutes from "./organization/organization.routes";
 import organizationUserRoutes from "./organization-user/organization-user.routes";
 import ognanizationContextRoutes from "./ognanization-context/ognanization-context.routes";
+import organizationUserOrchestratorRoutes from "./organization-user-orchestrator/organization-user-orchestrator.routes";
 
 const app = Fastify({ logger: true });
 
@@ -26,7 +27,7 @@ const start = async () => {
       openapi: {
         openapi: "3.1.0",
         info: {
-          title: "My API",
+          title: "My Personnal Assistant API",
           version: "1.0.0",
         },
       },
@@ -45,6 +46,7 @@ const start = async () => {
     await app.register(organizationRoutes, { prefix: "/organization" });
     await app.register(organizationUserRoutes, { prefix: "/organization-user" });
     await app.register(ognanizationContextRoutes, { prefix: "/ognanization-context" });
+    await app.register(organizationUserOrchestratorRoutes, { prefix: "/organization-user-orchestrator" });
 
     await app.listen({ port, host: "0.0.0.0" });
 

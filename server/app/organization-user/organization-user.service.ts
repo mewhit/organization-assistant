@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import { type DbError, UnknownDbError, NotFoundError } from "@libs/dbHandler";
+import { type DbError, UnknownDbError } from "@libs/dbHandler";
 
 import { OrganizationUserStorage } from "./organization-user.storage";
 import {

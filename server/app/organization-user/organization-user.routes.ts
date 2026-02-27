@@ -1,12 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
-import { UnknownDbError, NotFoundError } from "@libs/dbHandler";
+import { mapErrorToHttp } from "@libs/dbHandler";
 
-import {
-  OrganizationUserService,
-  OrganizationUserNotFound,
-  OrganizationUserServiceError,
-} from "./organization-user.service";
+import { OrganizationUserService } from "./organization-user.service";
 import {
   CreateOrganizationUserDtoSchema,
   UpdateOrganizationUserDtoSchema,
@@ -18,32 +14,13 @@ const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
 });
 
-function mapOrganizationUserServiceError(error: OrganizationUserServiceError): {
-  statusCode: 404 | 500;
-  message: string;
-} {
-  if (error instanceof OrganizationUserNotFound) {
-    return { statusCode: 404, message: "OrganizationUser not found" };
-  }
-
-  if (error instanceof NotFoundError) {
-    return { statusCode: 404, message: error.message };
-  }
-
-  if (error instanceof UnknownDbError) {
-    return { statusCode: 500, message: "Database error" };
-  }
-
-  return { statusCode: 500, message: "Internal server error" };
-}
-
 export default async function organizationUserRoutes(app: FastifyInstance) {
   defineRoute(app, {
     method: "POST",
     url: "/",
     input: CreateOrganizationUserDtoSchema,
     output: OrganizationUserDtoSchema,
-    handler: (input) => OrganizationUserService.create(input).pipe(Effect.mapError(mapOrganizationUserServiceError)),
+    handler: (input) => OrganizationUserService.create(input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -51,8 +28,7 @@ export default async function organizationUserRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OrganizationUserDtoSchema,
-    handler: (_, params) =>
-      OrganizationUserService.findOne(params.id).pipe(Effect.mapError(mapOrganizationUserServiceError)),
+    handler: (_, params) => OrganizationUserService.findOne(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -61,8 +37,7 @@ export default async function organizationUserRoutes(app: FastifyInstance) {
     input: UpdateOrganizationUserDtoSchema,
     params: IdParamsSchema,
     output: OrganizationUserDtoSchema,
-    handler: (input, params) =>
-      OrganizationUserService.update(params.id, input).pipe(Effect.mapError(mapOrganizationUserServiceError)),
+    handler: (input, params) => OrganizationUserService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -71,8 +46,7 @@ export default async function organizationUserRoutes(app: FastifyInstance) {
     input: UpdateOrganizationUserDtoSchema,
     params: IdParamsSchema,
     output: OrganizationUserDtoSchema,
-    handler: (input, params) =>
-      OrganizationUserService.update(params.id, input).pipe(Effect.mapError(mapOrganizationUserServiceError)),
+    handler: (input, params) => OrganizationUserService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -80,7 +54,6 @@ export default async function organizationUserRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OrganizationUserDtoSchema,
-    handler: (_, params) =>
-      OrganizationUserService.remove(params.id).pipe(Effect.mapError(mapOrganizationUserServiceError)),
+    handler: (_, params) => OrganizationUserService.remove(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 }

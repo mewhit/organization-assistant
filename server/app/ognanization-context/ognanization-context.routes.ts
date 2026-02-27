@@ -1,12 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { Effect, Schema } from "effect";
-import { UnknownDbError } from "@libs/dbHandler";
+import { mapErrorToHttp } from "@libs/dbHandler";
 
-import {
-  OgnanizationContextService,
-  OgnanizationContextNotFound,
-  OgnanizationContextServiceError,
-} from "./ognanization-context.service";
+import { OgnanizationContextService } from "./ognanization-context.service";
 import {
   CreateOgnanizationContextDtoSchema,
   UpdateOgnanizationContextDtoSchema,
@@ -18,29 +14,13 @@ const IdParamsSchema = Schema.Struct({
   id: Schema.UUID,
 });
 
-function mapOgnanizationContextServiceError(error: OgnanizationContextServiceError): {
-  statusCode: 404 | 500;
-  message: string;
-} {
-  if (error instanceof OgnanizationContextNotFound) {
-    return { statusCode: 404, message: "OgnanizationContext not found" };
-  }
-
-  if (error instanceof UnknownDbError) {
-    return { statusCode: 500, message: "Database error" };
-  }
-
-  return { statusCode: 500, message: "Internal server error" };
-}
-
 export default async function ognanizationContextRoutes(app: FastifyInstance) {
   defineRoute(app, {
     method: "POST",
     url: "/",
     input: CreateOgnanizationContextDtoSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (input) =>
-      OgnanizationContextService.create(input).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (input) => OgnanizationContextService.create(input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -48,8 +28,7 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (_, params) =>
-      OgnanizationContextService.findOne(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (_, params) => OgnanizationContextService.findOne(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -59,7 +38,7 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
     handler: (input, params) =>
-      OgnanizationContextService.update(params.id, input).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+      OgnanizationContextService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -69,7 +48,7 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
     handler: (input, params) =>
-      OgnanizationContextService.update(params.id, input).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+      OgnanizationContextService.update(params.id, input).pipe(Effect.mapError(mapErrorToHttp)),
   });
 
   defineRoute(app, {
@@ -77,7 +56,6 @@ export default async function ognanizationContextRoutes(app: FastifyInstance) {
     url: "/:id",
     params: IdParamsSchema,
     output: OgnanizationContextDtoSchema,
-    handler: (_, params) =>
-      OgnanizationContextService.remove(params.id).pipe(Effect.mapError(mapOgnanizationContextServiceError)),
+    handler: (_, params) => OgnanizationContextService.remove(params.id).pipe(Effect.mapError(mapErrorToHttp)),
   });
 }
