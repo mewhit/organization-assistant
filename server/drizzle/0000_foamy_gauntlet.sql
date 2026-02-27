@@ -1,11 +1,11 @@
-CREATE TABLE `ognanization-contexts` (
+CREATE TABLE `organization-contexts` (
 	`id` varchar(36) NOT NULL DEFAULT (uuid()),
 	`context` text NOT NULL,
 	`updated_by` varchar(150),
 	`created_by` varchar(150),
 	`updated_at` timestamp NOT NULL DEFAULT (now()),
 	`created_at` timestamp NOT NULL DEFAULT (now()),
-	CONSTRAINT `ognanization-contexts_id` PRIMARY KEY(`id`)
+	CONSTRAINT `organization-contexts_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
 CREATE TABLE `organization-users` (

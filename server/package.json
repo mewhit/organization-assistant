@@ -6,10 +6,12 @@
     "dev": "tsx --watch app/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit --watch",
+    "test:e2e": "tsx --test tests/e2e/**/*.e2e.test.ts",
     "start": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "cli": "tsx scripts/index.ts"
+    "cli": "tsx scripts/index.ts",
+    "init:happy-head": "bash ./scripts/init-happy-head.sh"
   },
   "license": "MIT",
   "dependencies": {

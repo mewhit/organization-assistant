@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "28965408-106e-4dc1-94b2-3c359b01d6be",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "ea031f84-680d-4e43-ade1-8c726c3d70f8",
+  "prevId": "28965408-106e-4dc1-94b2-3c359b01d6be",
   "tables": {
     "organization-contexts": {
       "name": "organization-contexts",
@@ -22,16 +22,16 @@
           "notNull": true,
           "autoincrement": false
         },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "varchar(150)",
+        "organization_id": {
+          "name": "organization_id",
+          "type": "varchar(36)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "varchar(150)",
+        "updated_by": {
+          "name": "updated_by",
+          "type": "varchar(36)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -54,7 +54,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "organization-contexts_updated_by_users_id_fk": {
+          "name": "organization-contexts_updated_by_users_id_fk",
+          "tableFrom": "organization-contexts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "organization-contexts_id": {
           "name": "organization-contexts_id",

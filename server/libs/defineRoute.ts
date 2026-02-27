@@ -34,9 +34,7 @@ function inlineLocalDefs<T>(schema: T): T {
 
     const node = value as Record<string, unknown>;
     const nodeDefs =
-      node.$defs && typeof node.$defs === "object" && !Array.isArray(node.$defs)
-        ? (node.$defs as Record<string, unknown>)
-        : inheritedDefs;
+      node.$defs && typeof node.$defs === "object" && !Array.isArray(node.$defs) ? (node.$defs as Record<string, unknown>) : inheritedDefs;
 
     if (typeof node.$ref === "string" && node.$ref.startsWith(LOCAL_DEFS_PREFIX) && nodeDefs) {
       const defName = node.$ref.slice(LOCAL_DEFS_PREFIX.length);
@@ -71,15 +69,14 @@ function inlineLocalDefs<T>(schema: T): T {
 }
 
 export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
-  const bodySchema = config.input
-    ? inlineLocalDefs(JSONSchema.make(config.input, { target: "openApi3.1" }))
-    : undefined;
+  const bodySchema = config.input ? inlineLocalDefs(JSONSchema.make(config.input, { target: "openApi3.1" })) : undefined;
 
   const responseSchema = inlineLocalDefs(JSONSchema.make(config.output, { target: "openApi3.1" }));
 
   app.route({
     method: config.method,
     url: config.url,
+
     schema: {
       body: bodySchema,
       response: {
