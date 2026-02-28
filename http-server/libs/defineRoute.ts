@@ -4,7 +4,7 @@ import { FastifyInstance } from "fastify";
 
 type HttpError = {
   message: string;
-  statusCode: 400 | 404 | 409 | 500;
+  statusCode: 400 | 403 | 404 | 409 | 500;
 };
 
 type RouteConfig<P, I, O> = {
@@ -34,7 +34,9 @@ function inlineLocalDefs<T>(schema: T): T {
 
     const node = value as Record<string, unknown>;
     const nodeDefs =
-      node.$defs && typeof node.$defs === "object" && !Array.isArray(node.$defs) ? (node.$defs as Record<string, unknown>) : inheritedDefs;
+      node.$defs && typeof node.$defs === "object" && !Array.isArray(node.$defs)
+        ? (node.$defs as Record<string, unknown>)
+        : inheritedDefs;
 
     if (typeof node.$ref === "string" && node.$ref.startsWith(LOCAL_DEFS_PREFIX) && nodeDefs) {
       const defName = node.$ref.slice(LOCAL_DEFS_PREFIX.length);
@@ -101,7 +103,9 @@ function normalizeSchema<T>(schema: T): T {
 }
 
 export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P, I, O>) {
-  const bodySchema = config.input ? normalizeSchema(JSONSchema.make(config.input, { target: "openApi3.1" })) : undefined;
+  const bodySchema = config.input
+    ? normalizeSchema(JSONSchema.make(config.input, { target: "openApi3.1" }))
+    : undefined;
 
   const responseSchema = normalizeSchema(JSONSchema.make(config.output, { target: "openApi3.1" }));
 
@@ -115,6 +119,7 @@ export function defineRoute<P, I, O>(app: FastifyInstance, config: RouteConfig<P
         200: responseSchema,
         201: responseSchema,
         400: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
+        403: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
         404: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
         409: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
         500: normalizeSchema(JSONSchema.make(Schema.Struct({ message: Schema.String }), { target: "openApi3.1" })),
