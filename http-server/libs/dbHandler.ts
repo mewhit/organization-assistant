@@ -62,5 +62,6 @@ export function mapErrorToHttp(error: unknown): { statusCode: 400 | 404 | 409 | 
     return { statusCode: 409, message: error.message };
   }
 
+  console.error("Unexpected error:", error);
   return { statusCode: 500, message: "Internal server error" };
 }

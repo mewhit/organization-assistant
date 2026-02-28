@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { createOpenAiDebugSession } from "./openai-debug-logger";
 
 type OpenAITool = {
   type: "function";
@@ -58,6 +59,7 @@ type ExecuteCommandInput = {
 
 type ExecuteCommandOptions = {
   onIteration?: (event: CommandIterationEvent) => void;
+  previousResponseId?: string;
 };
 
 type ApiErrorShape = {
@@ -218,24 +220,71 @@ export class CommandOrchestratorService {
     const toolsJson = Array.isArray(mcpPlugin.tools) ? (mcpPlugin.tools as OpenAITool[]) : [];
     const functionTools = mapToFunctionTools(toolsJson);
     const openai = new OpenAI({ apiKey: organizationLlm.apiKey });
-
-    const firstResponse = await openai.responses.create({
-      model: "gpt-4.1",
-      input: input.command,
-      tools: functionTools,
-    });
+    const debugSession = createOpenAiDebugSession("websocket-command-orchestrator");
 
     const availableTools = new Set(functionTools.map((tool) => tool.name));
 
     const executedCalls: ExecutedFunctionCall[] = [];
-    let currentResponse = firstResponse;
+    let firstResponse: OpenAI.Responses.Response | null = null;
+    let currentResponse: OpenAI.Responses.Response;
     let round = 0;
+    let firstNonFinalIterationSent = false;
 
-    while (true) {
-      const functionCalls = extractFunctionCalls(currentResponse);
+    const emitIteration = (responseId: string, functionCalls: ExecutedFunctionCall[]) => {
+      round += 1;
+      options?.onIteration?.({
+        round,
+        functionCalls,
+        responseId,
+      });
+    };
+
+    const executeRounds = async (
+      roundInput: string | Array<{ type: "function_call_output"; call_id: string; output: string }>,
+      previousResponseId?: string,
+    ): Promise<OpenAI.Responses.Response> => {
+      const requestPayload = {
+        model: "gpt-4.1",
+        input: `${roundInput} date: ${new Date().toISOString()}`,
+        previous_response_id: previousResponseId,
+        tools: functionTools,
+        temperature: 0,
+      };
+
+      const response = await openai.responses.create(requestPayload);
+
+      await debugSession.write({
+        phase: previousResponseId ? "follow-up-response" : "initial-response",
+        request: requestPayload,
+        response,
+        metadata: {
+          organizationLlmId: organizationLlm.id,
+          mcpPluginId: mcpPlugin.id,
+          previousResponseId: previousResponseId ?? null,
+          debugSessionId: debugSession.sessionId,
+        },
+      });
+
+      if (!firstResponse) {
+        firstResponse = response;
+      }
+
+      const functionCalls = extractFunctionCalls(response);
 
       if (functionCalls.length === 0) {
-        break;
+        return response;
+      }
+
+      if (!firstNonFinalIterationSent) {
+        const requestedFunctionCalls = functionCalls.map((functionCall) => ({
+          callId: functionCall.call_id,
+          name: functionCall.name,
+          arguments: parseFunctionArguments(functionCall.arguments),
+          result: null,
+        }));
+
+        emitIteration(response.id, requestedFunctionCalls);
+        firstNonFinalIterationSent = true;
       }
 
       const roundExecutedCalls: ExecutedFunctionCall[] = [];
@@ -245,14 +294,61 @@ export class CommandOrchestratorService {
           throw new Error(`Requested tool '${functionCall.name}' is not available`);
         }
 
-        const parsedArguments = parseFunctionArguments(functionCall.arguments);
-        const result = await executeMcpTool(
-          baseUrl,
-          mcpPlugin.name,
-          functionCall.name,
-          parsedArguments,
-          organizationMcpPlugin.config,
-        );
+        let parsedArguments: Record<string, unknown> = {};
+        let result: unknown;
+
+        try {
+          parsedArguments = parseFunctionArguments(functionCall.arguments);
+          result = await executeMcpTool(
+            baseUrl,
+            mcpPlugin.name,
+            functionCall.name,
+            parsedArguments,
+            organizationMcpPlugin.config,
+          );
+
+          await debugSession.write({
+            phase: "tool-response",
+            request: {
+              tool: functionCall.name,
+              input: parsedArguments,
+              credentials: organizationMcpPlugin.config,
+            },
+            response: result,
+            metadata: {
+              organizationLlmId: organizationLlm.id,
+              mcpPluginId: mcpPlugin.id,
+              responseId: response.id,
+              callId: functionCall.call_id,
+              debugSessionId: debugSession.sessionId,
+            },
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          result = {
+            error: true,
+            message,
+          };
+
+          await debugSession.write({
+            phase: "tool-response",
+            request: {
+              tool: functionCall.name,
+              input: parsedArguments,
+              credentials: organizationMcpPlugin.config,
+            },
+            response: result,
+            metadata: {
+              organizationLlmId: organizationLlm.id,
+              mcpPluginId: mcpPlugin.id,
+              responseId: response.id,
+              callId: functionCall.call_id,
+              debugSessionId: debugSession.sessionId,
+              hasError: true,
+            },
+          });
+        }
 
         roundExecutedCalls.push({
           callId: functionCall.call_id,
@@ -263,13 +359,7 @@ export class CommandOrchestratorService {
       }
 
       executedCalls.push(...roundExecutedCalls);
-      round += 1;
-
-      options?.onIteration?.({
-        round,
-        functionCalls: roundExecutedCalls,
-        responseId: currentResponse.id,
-      });
+      emitIteration(response.id, roundExecutedCalls);
 
       const followUpInput = roundExecutedCalls.map((call) => ({
         type: "function_call_output" as const,
@@ -277,13 +367,10 @@ export class CommandOrchestratorService {
         output: JSON.stringify(call.result),
       }));
 
-      currentResponse = await openai.responses.create({
-        model: "gpt-4.1",
-        previous_response_id: currentResponse.id,
-        input: followUpInput,
-        tools: functionTools,
-      });
-    }
+      return executeRounds(followUpInput, response.id);
+    };
+
+    currentResponse = await executeRounds(input.command, options?.previousResponseId);
 
     if (executedCalls.length === 0) {
       return {

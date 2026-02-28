@@ -19,6 +19,58 @@ type CommandExecuteMessage = {
 
 type SocketMessage = CommandExecuteMessage;
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractFinalOutput(result: unknown): unknown {
+  if (!isObjectRecord(result)) {
+    return result;
+  }
+
+  const response = result.response;
+
+  if (!isObjectRecord(response)) {
+    return result;
+  }
+
+  const finalResponse = response.finalResponse;
+
+  if (isObjectRecord(finalResponse) && "output" in finalResponse) {
+    return finalResponse.output;
+  }
+
+  if ("output" in response) {
+    return response.output;
+  }
+
+  return response;
+}
+
+function extractLatestResponseId(result: unknown): string | null {
+  if (!isObjectRecord(result)) {
+    return null;
+  }
+
+  const response = result.response;
+
+  if (!isObjectRecord(response)) {
+    return null;
+  }
+
+  const finalResponse = response.finalResponse;
+
+  if (isObjectRecord(finalResponse) && typeof finalResponse.id === "string") {
+    return finalResponse.id;
+  }
+
+  if (typeof response.id === "string") {
+    return response.id;
+  }
+
+  return null;
+}
+
 function sendJson(ws: WebSocket, payload: unknown) {
   ws.send(JSON.stringify(payload));
 }
@@ -43,20 +95,30 @@ function parseIncomingMessage(message: Buffer): SocketMessage {
   };
 }
 
-const handleMessage = (ws: WebSocket, message: Buffer) =>
+const handleMessage = (ws: WebSocket, message: Buffer, previousResponseId: string | null, onResponseId: (id: string) => void) =>
   Effect.sync(() => {
     CommandOrchestratorService.executeCommand(parseIncomingMessage(message).payload, {
+      previousResponseId: previousResponseId ?? undefined,
       onIteration: (iterationEvent) => {
         sendJson(ws, {
           type: "command_iteration",
-          payload: iterationEvent,
+          payload: {
+            output: iterationEvent.functionCalls.map((functionCall) => functionCall.result),
+          },
         });
       },
     })
       .then((result) => {
+        const latestResponseId = extractLatestResponseId(result);
+        if (latestResponseId) {
+          onResponseId(latestResponseId);
+        }
+
         sendJson(ws, {
           type: "command_final",
-          payload: result,
+          payload: {
+            output: extractFinalOutput(result),
+          },
         });
       })
       .catch((error: unknown) => {
@@ -72,9 +134,14 @@ const handleMessage = (ws: WebSocket, message: Buffer) =>
 const handleConnection = (ws: WebSocket) =>
   Effect.sync(() => {
     console.log("Client connected");
+    let previousResponseId: string | null = null;
 
     ws.on("message", (message: Buffer) => {
-      Effect.runSync(handleMessage(ws, message));
+      Effect.runSync(
+        handleMessage(ws, message, previousResponseId, (responseId) => {
+          previousResponseId = responseId;
+        }),
+      );
     });
 
     ws.on("close", () => {

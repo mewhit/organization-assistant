@@ -11,6 +11,7 @@ import {
 import { McpPluginService, type McpPluginServiceError } from "../mcp-plugin/mcp-plugin.service";
 import { McpGoogleSearchConsolePluginService } from "../mcp-google-search-console-plugin/mcp-google-search-console-plugin.service";
 import { type GscToolName } from "../mcp-google-search-console-plugin/mcp-google-search-console-plugin.dto";
+import { createOpenAiDebugSession } from "@libs/openaiDebugLogger";
 
 type FunctionTool = OpenAI.Responses.FunctionTool;
 
@@ -149,21 +150,41 @@ export class CommandOrchestratorService {
   > {
     return Effect.gen(function* () {
       const organizationLlm = yield* OrganizationLlmService.findOne(commandOrchestrator.organizationLlmId);
-      const organizationMcpPlugin = yield* OrganizationMcpPluginService.findActiveByOrganizationId(organizationLlm.organizationId);
+      const organizationMcpPlugin = yield* OrganizationMcpPluginService.findActiveByOrganizationId(
+        organizationLlm.organizationId,
+      );
       const mcpPlugin = yield* McpPluginService.findOne(organizationMcpPlugin.mcpPluginId);
 
       const userMessage = commandOrchestrator.command;
+      const now = Date.now();
       const toolsJson = Array.isArray(mcpPlugin.tools) ? (mcpPlugin.tools as OpenAITool[]) : [];
       const functionTools = mapToFunctionTool(toolsJson);
       const openai = new OpenAI({ apiKey: organizationLlm.apiKey });
+      const debugSession = createOpenAiDebugSession("http-command-orchestrator");
 
       const response = yield* Effect.tryPromise({
-        try: () =>
-          openai.responses.create({
+        try: async () => {
+          const requestPayload = {
             model: "gpt-4.1",
-            input: userMessage,
+            input: `${userMessage}\n\ntoday: ${now}`,
             tools: functionTools,
-          }),
+          };
+
+          const response = await openai.responses.create(requestPayload);
+
+          await debugSession.write({
+            phase: "initial-response",
+            request: requestPayload,
+            response,
+            metadata: {
+              organizationLlmId: organizationLlm.id,
+              mcpPluginId: mcpPlugin.id,
+              debugSessionId: debugSession.sessionId,
+            },
+          });
+
+          return response;
+        },
         catch: (error) => {
           console.error("OpenAI responses.create failed", error);
 
@@ -192,7 +213,9 @@ export class CommandOrchestratorService {
           (functionCall): Effect.Effect<ExecutedFunctionCall, OpenAiExecutorError> =>
             Effect.gen(function* () {
               if (!availableTools.has(functionCall.name)) {
-                return yield* Effect.fail(new OpenAiExecutorError(`Requested tool '${functionCall.name}' is not available`));
+                return yield* Effect.fail(
+                  new OpenAiExecutorError(`Requested tool '${functionCall.name}' is not available`),
+                );
               }
 
               const parsedArguments = yield* Effect.try({
@@ -200,7 +223,12 @@ export class CommandOrchestratorService {
                 catch: (error) => new OpenAiExecutorError(error),
               });
 
-              const result = yield* executeMcpTool(mcpPlugin.name, functionCall.name, parsedArguments, organizationMcpPlugin.config);
+              const result = yield* executeMcpTool(
+                mcpPlugin.name,
+                functionCall.name,
+                parsedArguments,
+                organizationMcpPlugin.config,
+              );
 
               return {
                 callId: functionCall.call_id,
@@ -213,20 +241,43 @@ export class CommandOrchestratorService {
 
         executedCalls.push(...roundExecutedCalls);
 
-        const followUpInput = roundExecutedCalls.map((call) => ({
-          type: "function_call_output" as const,
-          call_id: call.callId,
-          output: JSON.stringify(call.result),
-        }));
+        const followUpInput = [
+          {
+            role: "system" as const,
+            content: `today: ${Date.now()}`,
+          },
+          ...roundExecutedCalls.map((call) => ({
+            type: "function_call_output" as const,
+            call_id: call.callId,
+            output: JSON.stringify(call.result),
+          })),
+        ];
 
         currentResponse = yield* Effect.tryPromise({
-          try: () =>
-            openai.responses.create({
+          try: async () => {
+            const requestPayload = {
               model: "gpt-4.1",
               previous_response_id: currentResponse.id,
               input: followUpInput,
               tools: functionTools,
-            }),
+            };
+
+            const response = await openai.responses.create(requestPayload);
+
+            await debugSession.write({
+              phase: "follow-up-response",
+              request: requestPayload,
+              response,
+              metadata: {
+                organizationLlmId: organizationLlm.id,
+                previousResponseId: currentResponse.id,
+                executedCallsCount: roundExecutedCalls.length,
+                debugSessionId: debugSession.sessionId,
+              },
+            });
+
+            return response;
+          },
           catch: (error) => {
             console.error("OpenAI follow-up responses.create failed", error);
 

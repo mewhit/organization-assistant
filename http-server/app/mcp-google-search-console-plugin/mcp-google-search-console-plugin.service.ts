@@ -97,21 +97,6 @@ class GscExecutionError {
 
 export type McpGoogleSearchConsolePluginServiceError = GscCredentialsMissingError | GscBadRequest | GscExecutionError;
 
-function mapServiceErrorToHttp(error: McpGoogleSearchConsolePluginServiceError): {
-  statusCode: 400 | 404 | 409 | 500;
-  message: string;
-} {
-  if (error instanceof GscBadRequest) {
-    return { statusCode: 400, message: error.message };
-  }
-
-  if (error instanceof GscCredentialsMissingError) {
-    return { statusCode: 500, message: "Google Search Console credentials are not configured" };
-  }
-
-  return { statusCode: 500, message: "Failed to execute Google Search Console request" };
-}
-
 function loadCredentialsFromEnv() {
   const raw = process.env.GSC_CREDENTIALS_JSON;
 
@@ -152,7 +137,6 @@ function createSearchConsoleApi(credentials?: unknown): SearchConsoleApi {
   if (!resolvedCredentials) {
     throw new GscCredentialsMissingError();
   }
-
   const auth = new google.auth.GoogleAuth({
     credentials: resolvedCredentials,
     scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
@@ -226,7 +210,10 @@ async function executeExportTopPages(searchconsole: SearchConsoleApi, input: Exp
   };
 }
 
-async function executeGetSearchAnalytics(searchconsole: SearchConsoleApi, input: GetSearchAnalyticsInput): Promise<unknown> {
+async function executeGetSearchAnalytics(
+  searchconsole: SearchConsoleApi,
+  input: GetSearchAnalyticsInput,
+): Promise<unknown> {
   const dimensionFilters: Array<{
     dimension: "query" | "country" | "device";
     operator: "contains" | "equals" | "includingRegex";
@@ -309,7 +296,10 @@ async function executeInspectUrl(searchconsole: SearchConsoleApi, input: Inspect
   };
 }
 
-async function executeGetIndexCoverage(searchconsole: SearchConsoleApi, input: GetIndexCoverageInput): Promise<unknown> {
+async function executeGetIndexCoverage(
+  searchconsole: SearchConsoleApi,
+  input: GetIndexCoverageInput,
+): Promise<unknown> {
   const inspections = await Promise.all(
     input.urls.map(async (inspectionUrl) => {
       const response = await searchconsole.urlInspection.index.inspect({
@@ -365,6 +355,7 @@ export class McpGoogleSearchConsolePluginService {
     credentials?: unknown,
   ): Effect.Effect<GscExecuteResultDto, McpGoogleSearchConsolePluginServiceError> {
     return Effect.gen(function* () {
+      console.log(tool, input);
       const searchconsole = yield* Effect.try({
         try: () => createSearchConsoleApi(credentials),
         catch: (error) => {
@@ -435,6 +426,4 @@ export class McpGoogleSearchConsolePluginService {
       };
     });
   }
-
-  static mapErrorToHttp = mapServiceErrorToHttp;
 }

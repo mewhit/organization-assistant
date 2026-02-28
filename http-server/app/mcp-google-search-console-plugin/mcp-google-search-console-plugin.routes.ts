@@ -8,6 +8,7 @@ import {
   GscToolsListDtoSchema,
 } from "./mcp-google-search-console-plugin.dto";
 import { McpGoogleSearchConsolePluginService } from "./mcp-google-search-console-plugin.service";
+import { mapErrorToHttp } from "@libs/dbHandler";
 
 export default async function mcpGoogleSearchConsolePluginRoutes(app: FastifyInstance) {
   defineRoute(app, {
@@ -24,7 +25,7 @@ export default async function mcpGoogleSearchConsolePluginRoutes(app: FastifyIns
     output: GscExecuteResultDtoSchema,
     handler: (input) =>
       McpGoogleSearchConsolePluginService.executeTool(input.tool, input.input, input.credentials).pipe(
-        Effect.mapError(McpGoogleSearchConsolePluginService.mapErrorToHttp),
+        Effect.mapError(mapErrorToHttp),
       ),
   });
 }
