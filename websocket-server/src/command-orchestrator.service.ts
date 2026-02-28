@@ -62,10 +62,28 @@ type ExecuteCommandOptions = {
   previousResponseId?: string;
 };
 
+type FunctionCallOutputInputItem = {
+  type: "function_call_output";
+  call_id: string;
+  output: string;
+};
+
+type OpenAiRoundInput = string | FunctionCallOutputInputItem[];
+
 type ApiErrorShape = {
   statusCode?: number;
   message?: string;
 };
+
+class HttpRequestError extends Error {
+  readonly statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = "HttpRequestError";
+    this.statusCode = statusCode;
+  }
+}
 
 function normalizeFunctionParameters(parameters: Record<string, unknown>): Record<string, unknown> {
   const schema = parameters && typeof parameters === "object" ? { ...parameters } : {};
@@ -165,7 +183,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
     // keep default message
   }
 
-  throw new Error(message);
+  throw new HttpRequestError(response.status, message);
 }
 
 async function getOrganizationLlm(baseUrl: string, organizationLlmId: string): Promise<OrganizationLlm> {
@@ -228,7 +246,6 @@ export class CommandOrchestratorService {
     let firstResponse: OpenAI.Responses.Response | null = null;
     let currentResponse: OpenAI.Responses.Response;
     let round = 0;
-    let firstNonFinalIterationSent = false;
 
     const emitIteration = (responseId: string, functionCalls: ExecutedFunctionCall[]) => {
       round += 1;
@@ -240,12 +257,23 @@ export class CommandOrchestratorService {
     };
 
     const executeRounds = async (
-      roundInput: string | Array<{ type: "function_call_output"; call_id: string; output: string }>,
+      roundInput: OpenAiRoundInput,
       previousResponseId?: string,
     ): Promise<OpenAI.Responses.Response> => {
-      const requestPayload = {
-        model: "gpt-4.1",
-        input: `${roundInput} date: ${new Date().toISOString()}`,
+      const requestInput =
+        typeof roundInput === "string"
+          ? `${roundInput}\n\ntoday: ${Date.now()}`
+          : [
+              {
+                role: "system" as const,
+                content: `today: ${Date.now()}`,
+              },
+              ...roundInput,
+            ];
+
+      const requestPayload: OpenAI.Responses.ResponseCreateParamsNonStreaming = {
+        model: "gpt-5.2",
+        input: requestInput,
         previous_response_id: previousResponseId,
         tools: functionTools,
         temperature: 0,
@@ -273,18 +301,6 @@ export class CommandOrchestratorService {
 
       if (functionCalls.length === 0) {
         return response;
-      }
-
-      if (!firstNonFinalIterationSent) {
-        const requestedFunctionCalls = functionCalls.map((functionCall) => ({
-          callId: functionCall.call_id,
-          name: functionCall.name,
-          arguments: parseFunctionArguments(functionCall.arguments),
-          result: null,
-        }));
-
-        emitIteration(response.id, requestedFunctionCalls);
-        firstNonFinalIterationSent = true;
       }
 
       const roundExecutedCalls: ExecutedFunctionCall[] = [];
@@ -325,10 +341,17 @@ export class CommandOrchestratorService {
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          const statusCode =
+            error instanceof HttpRequestError
+              ? error.statusCode
+              : isObjectRecord(error) && typeof error.statusCode === "number"
+                ? error.statusCode
+                : null;
 
           result = {
             error: true,
             message,
+            ...(statusCode ? { statusCode } : {}),
           };
 
           await debugSession.write({
@@ -346,6 +369,7 @@ export class CommandOrchestratorService {
               callId: functionCall.call_id,
               debugSessionId: debugSession.sessionId,
               hasError: true,
+              ...(statusCode ? { statusCode } : {}),
             },
           });
         }

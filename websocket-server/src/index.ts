@@ -23,6 +23,56 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function extractTextFromOutput(output: unknown): string | null {
+  if (!Array.isArray(output)) {
+    return null;
+  }
+
+  const texts: string[] = [];
+
+  for (const item of output) {
+    if (!isObjectRecord(item)) {
+      continue;
+    }
+
+    if (typeof item.text === "string" && item.text.trim().length > 0) {
+      texts.push(item.text);
+    }
+
+    if (!Array.isArray(item.content)) {
+      continue;
+    }
+
+    for (const contentItem of item.content) {
+      if (!isObjectRecord(contentItem)) {
+        continue;
+      }
+
+      if (typeof contentItem.text === "string" && contentItem.text.trim().length > 0) {
+        texts.push(contentItem.text);
+      }
+    }
+  }
+
+  if (texts.length === 0) {
+    return null;
+  }
+
+  return texts.join("\n\n");
+}
+
+function extractResponseText(response: Record<string, unknown>): string | null {
+  if (typeof response.output_text === "string" && response.output_text.trim().length > 0) {
+    return response.output_text;
+  }
+
+  if (!("output" in response)) {
+    return null;
+  }
+
+  return extractTextFromOutput(response.output);
+}
+
 function extractFinalOutput(result: unknown): unknown {
   if (!isObjectRecord(result)) {
     return result;
@@ -36,8 +86,21 @@ function extractFinalOutput(result: unknown): unknown {
 
   const finalResponse = response.finalResponse;
 
-  if (isObjectRecord(finalResponse) && "output" in finalResponse) {
-    return finalResponse.output;
+  if (isObjectRecord(finalResponse)) {
+    const text = extractResponseText(finalResponse);
+
+    if (text) {
+      return text;
+    }
+
+    if ("output" in finalResponse) {
+      return finalResponse.output;
+    }
+  }
+
+  const responseText = extractResponseText(response);
+  if (responseText) {
+    return responseText;
   }
 
   if ("output" in response) {
@@ -95,7 +158,12 @@ function parseIncomingMessage(message: Buffer): SocketMessage {
   };
 }
 
-const handleMessage = (ws: WebSocket, message: Buffer, previousResponseId: string | null, onResponseId: (id: string) => void) =>
+const handleMessage = (
+  ws: WebSocket,
+  message: Buffer,
+  previousResponseId: string | null,
+  onResponseId: (id: string) => void,
+) =>
   Effect.sync(() => {
     CommandOrchestratorService.executeCommand(parseIncomingMessage(message).payload, {
       previousResponseId: previousResponseId ?? undefined,

@@ -1,0 +1,37 @@
+{
+  "sequence": 2,
+  "timestamp": "2026-02-28T01:12:36.951Z",
+  "sessionId": "2026-02-28T01-12-34-910Z-dd6238e0-0e7b-4afd-8789-9282079eddff",
+  "flow": "websocket-command-orchestrator",
+  "phase": "tool-response",
+  "metadata": {
+    "organizationLlmId": "763253ec-c3de-4b5d-8e5b-d2f9beeb7554",
+    "mcpPluginId": "f74166ae-6cc4-4abf-875e-46e64bbe9d52",
+    "responseId": "resp_06aaf431162f17700069a24103fe3881988eed12f928300ac3",
+    "callId": "call_aamD9uihvJGXsh0Hf5v4dQCX",
+    "debugSessionId": "2026-02-28T01-12-34-910Z-dd6238e0-0e7b-4afd-8789-9282079eddff"
+  },
+  "request": {
+    "tool": "fetchProjects",
+    "input": {},
+    "credentials": {
+      "type": "service_account",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "client_id": "103505484742874439176",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "project_id": "couples-delight-site",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDC4RoSsRgTsyF+\nojsyyGfsAzYeK65PleLVrItacF219+nF6jeBO4ifv3EeSuwBCAm2rwQhOCzJLLFd\nahQpnF65kqO/D2uAkJlWsF3cmrlFfB8iwChYK1SHAF7QQ28+2MlJIJJ0AJTwB00A\ndN6pRnxR85kEPTs2tjvSJncr/dmoR9cWZH1Bmch41w5TxAPw/RriIwJNyxY4Uqa0\ng0ieiHuUfqJKw+W0Lc2mF6p6vxrzfMLdnfNgSt7iTUUoeLt9MikDedRSLR87XIM7\nGhMJJkf1ejLtfRJKU7OjHxuBDumaPvZfl4Mhus1jUltfgdlC1VZay9VUMMbNQMtD\nqxCVpEUDAgMBAAECggEAW1hl/0LxVTKOzau/cdNMGu16bXPuFbHdDGj/PNoUotnc\nwv9BGxtLtA1pOVjG/MjGvNGWbvfEzltbm7zATKzWHcflZwYUTsP4jBDJPkFr/Gzs\nrz5A6usMiOcciiRBvcShvNw+qY8oQMY7Sq59O/0lAsja/Yix+7g5nAyZqY4oet62\nsOY9x7HifxNNWDRNqVfqbvetcQWX2yUXTniae2LfbJIpoY59toeW/CzEJinuOzjz\n62MwdWFet8MMVVqgTJlWLV76sNYyrML7tKRXyLVKm8irgLoQ0xYiQ7nXLJgbOgvz\n+HQNJ7pcPFJvqTgalJ31sZDvKcMMAeKFB/Bof3lyoQKBgQD8nqQ8AYXa//hTpGaT\nqs09prwBthPyr7PwCLUUEoWK4UzusHLKZpJyt4SDi+oC1WKJB6ig5djrlUiPa++n\nIqyKQ8RvcTiQeA13hS002/QJudBzB/mjpL5y8N+MlLv4HQcaULSdo70uv4q9mOSP\ntcxLJiWUHHLBsLjo2Od02puUMQKBgQDFfKsbW6GsHK1S+jhp2hZD5QpQA69uZYkz\nZT7gQKoWw6GnTgNpA4sooduTpTiT1kYI1NLyhTrwf+nmYFl21HZYsvLSDw7HfXe5\n/HGeX8Fv0T+8RKMDESlwHZv2TmQ6jG8R0JnMHj/9IxyT2neN7jNeGHwltgcoWLQP\nw8Nput4jcwKBgQDJ9WJDfswumzlCVUqUf5Z51VS04YXtHT7zhWKO24fb0ecZZANB\ngONPxxuvtymsfj+6YV8U0uyq2rwZvSbpLbVXDHp8xb188h2CEfxkJ/xf0iet7xBL\nHagMaDmwQDBOWZaWGTNsW70hJIycqyD/K05aPfMJB/1OkCQkM1RHfYWn4QKBgQCw\nycWzG/hCxvkyCuVtfNnptaPhtSravPJxm/UJc1nQPxj7WI8c9xsgKKUUKxfW4D6Z\nsUuV50a3/Qo6PY5ZHiFDjg5plSk51EvVpvNfP4E+xCc2NotnN3nM7/SqLcrzzruv\nSvojDAFkboYqpavY1qANYAXjDGyj5aRraGgKwkoRmQKBgAVc8tGT6q8dBmx2tpGu\nZ+vCQAccTXVXMSTS/XrOzoMVQeMlQ6wyl/M+mNVp30M1CtTUqQPeB6aZCl1VOlug\nUGgJpxcXlDHoi+zRep0tF/YR8Z2MtX1HEjYgoxnLIzeTQ+MjooRo4nXRRyFjW/8Y\ndXJhX0RHEmFyjOKO+fZbYHc1\n-----END PRIVATE KEY-----\n",
+      "client_email": "google-search-console@couples-delight-site.iam.gserviceaccount.com",
+      "private_key_id": "8b3bf0e8c0751b0972b1e438931866951a4eb8fb",
+      "universe_domain": "googleapis.com",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/google-search-console%40couples-delight-site.iam.gserviceaccount.com",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+    }
+  },
+  "response": [
+    {
+      "siteUrl": "sc-domain:couplesdelight.com",
+      "permissionLevel": "siteFullUser"
+    }
+  ]
+}
